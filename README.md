@@ -9,7 +9,7 @@ It is similar to [When2meet](https://www.when2meet.com/) and [WhenIsGood](https:
 
 ## Design Goals
 
-- Modern, responsive UI (using [React](https://reactjs.org/)) with TypeScript
+- Modern, responsive UI (using [React](https://reactjs.org/) with TypeScript)
 - Easy to use and understand
 - Mobile friendly (using [Bootstrap](https://getbootstrap.com/))
 
