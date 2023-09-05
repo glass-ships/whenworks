@@ -1,4 +1,4 @@
-# When2meet / WhenIsGood Alternative
+# WhenWorks
 
 
 ## What is this?
