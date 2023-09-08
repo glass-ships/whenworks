@@ -29,17 +29,14 @@ impl Drop for ThreadPool {
         drop(self.sender.take());
         
         self.workers.iter_mut().for_each(|w| {
-            if let Some(thread) = w.thread.take() {
+            if let Some(thread) = w.0.take() {
                 thread.join().unwrap();
             }
         });
     }
 }
 
-struct Worker {
-    // id: usize,
-    thread: Option<JoinHandle<()>>,
-}
+struct Worker(Option<JoinHandle<()>>);
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
@@ -49,7 +46,7 @@ impl Worker {
                 while let Ok(job) = receiver.lock().unwrap().recv() { job(); }
             }).unwrap();
 
-        Self { thread: Some(thread), }
+        Self(Some(thread))
     }
 }
 

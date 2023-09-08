@@ -1,5 +1,5 @@
 use std::net::{TcpListener, TcpStream};
-use std::io::prelude::*;
+use std::io::{Read, Write};
 use std::str;
 
 use serde::Serialize;
