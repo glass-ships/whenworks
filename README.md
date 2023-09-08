@@ -12,6 +12,8 @@ It is similar to [When2meet](https://www.when2meet.com/) and [WhenIsGood](https:
 - Modern, responsive UI (using [React](https://reactjs.org/) with TypeScript)
 - Easy to use and understand
 - Mobile friendly (using [Bootstrap](https://getbootstrap.com/))
+- A Fast and Multi-Threaded HTTP server written in [Rust](https://www.rust-lang.org/)
+- Low disk usage (using [Bincode](https://crates.io/crates/bincode) for the database)
 
 
 ## Features
@@ -22,11 +24,6 @@ It is similar to [When2meet](https://www.when2meet.com/) and [WhenIsGood](https:
 - [ ] Users can indicate times they are available (or preferred?)
 - [ ] Users can use their name and a 4-digit pin to edit their availability
 - [ ] Users can leave comments (maybe?)
-
-
-## Database Schema
-
-TBD
 
 
 ## Contributing
