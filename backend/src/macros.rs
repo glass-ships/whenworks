@@ -8,14 +8,14 @@ macro_rules! status {
 #[macro_export]
 macro_rules! file {
     ($contents:expr) => {
-        format!("{HTTP} 200 OK\r\nContent-Length: {len}\r\n\r\n{contents}", len=$contents.len(), contents=$contents).as_bytes()
+        format!("{HTTP} 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len}\r\n\r\n{contents}", len=$contents.len(), contents=$contents).as_bytes()
     };
 }
 
 #[macro_export]
 macro_rules! json {
     ($contents:expr) => {
-        format!("{HTTP} 200 OK\r\nContent-Length: {len}\r\nContent-Type: application/json\r\n\r\n{contents}", len=$contents.len(), contents=$contents).as_bytes()
+        format!("{HTTP} 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len}\r\nContent-Type: application/json\r\n\r\n{contents}", len=$contents.len(), contents=$contents).as_bytes()
     };
 }
 
