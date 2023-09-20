@@ -2,7 +2,7 @@ use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
 use std::str;
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use threads::ThreadPool;
 use database::{load_db, Event, EVENT_LIST, Hash, UserEntry, EventEntry};
@@ -94,6 +94,7 @@ struct Hashes {
     edit_hash: String,
 }
 
+#[derive(Deserialize)]
 struct Boiled {
     pass: [char; 8],
     name: String,
