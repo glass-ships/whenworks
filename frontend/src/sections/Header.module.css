@@ -1,0 +1,83 @@
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 0;
+    position: relative;
+    top: 0;
+    padding-top: 2rem;
+    padding-bottom: 100px;
+    overflow: hidden;
+    gap: 5rem;
+}
+  
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  font-size: 5em;
+  gap: 20px;
+}
+
+.logo {
+  height: 100px;
+  width: 100px;
+  /* width: auto;  */
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+  
+  .divider {
+    width: 2px;
+    height: 100%;
+    background: var(--white);
+  }
+  
+  .h1 {
+    width: min-content;
+  }
+  
+  .subtitle {
+    max-width: 500px;
+    font-weight: 200;
+    font-size: 1.2rem;
+  }
+  
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    font-size: 1.2rem;
+  }
+  
+  @media (max-width: 500px) {
+    .title {
+      transform: scale(0.8);
+    }
+  }
+  
+  @media (max-width: 400px) {
+    .title {
+      transform: scale(0.6);
+    }
+  }

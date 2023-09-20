@@ -1,25 +1,33 @@
-`cargo run` to run er  
-edit [main.rs](src/main.rs) to change address and port
+# WhenWorks backend
 
-# Handled Requests
+## Setup
 
-get the index:  
-`GET /`  ->  index.html
+Run the server with `cargo run`
 
-get an event:  
-`GET /api/<event_id>`  ->  `{event_entry}`
+Edit [main.rs](src/main.rs) to change address and port
 
-create new event:  
-`POST /api/new` + `{body}`  ->  `{event_id, edit_key}`
+## Endpoints
 
-check validity of a key:  
-`POST /api/<event_id>?<edit_key>`  ->  `{event_entry}`
+#### get the index:  
+- request: `GET /` -> index.html
 
-edit an event:  
-`POST /api/<event_id>?<edit_key>` + `{body}`  ->  _
+#### get an event:  
+- request: `GET /api/<event_id>` -> `{event_entry}`
 
-add a user  
-`POST /api/<event_id>/usr` + `{body}`  ->  _
+#### create new event:  
+- request: `POST /api/new` + `{body}` -> `{event_id, edit_key}`  
+- body: {name, description, creation_date, date_range}`
 
-edit a user  
-`POST /api/<event_id>/usr?e` + `{body}`  ->  _
+#### check validity of a key:  
+- request: `POST /api/<event_id>?<edit_key>` -> `{event_entry}`
+
+#### edit an event:  
+- request: `POST /api/<event_id>?<edit_key>` + `{body}` -> \_
+- body: `{name, description, date_range}`
+
+#### add a user:
+- request: `POST /api/<event_id>/usr` + `{body}` -> \_
+
+#### edit a user:
+- request: `POST /api/<event_id>/usr?e` + `{body}` -> \_
+- body: `{name, comment, avail_dates}`
