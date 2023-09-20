@@ -5,7 +5,7 @@ use std::str;
 use serde::Serialize;
 
 use threads::ThreadPool;
-use database::{load_db, Event, EVENT_LIST, Hash, User};
+use database::{load_db, Event, EVENT_LIST, Hash, UserEntry};
 
 mod threads;
 mod macros;
@@ -102,13 +102,16 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
 
     //
     // create a new event
-    if arg == "/new" {
+    if arg == "new" {
         if body.is_empty() {
             stream.write_all(status!("400 BAD REQUEST")).unwrap();
             return;
         }
 
-        let event: Event = serde_json::from_str(body).unwrap();
+        let Ok(event) = serde_json::from_str::<Event>(body) else {
+            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            return;
+        };
         let hashes = Event::add(event);
 
         let responce = serde_json::to_string(&Hashes {
@@ -127,7 +130,7 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
             false => &arg[1..],
         };
 
-        let Some((event_id, username)) = arg_.split_once('/') else {
+        let Some((event_id, _)) = arg_.split_once('/') else {
             stream.write_all(status!("400 BAD REQUEST")).unwrap();
             return;
         };
@@ -137,16 +140,24 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
             return;
         };
 
-        let user: User = serde_json::from_str(body).unwrap();
+        let Ok(user) = serde_json::from_str::<UserEntry>(body) else {
+            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            return;
+        };
+
+        if user.name.len() > 32 {
+            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            return;
+        }
 
         if arg.ends_with("?e") {
-            if let Err(e) =  Event::edit_user(event_id, username.to_string(), user) {
+            if let Err(e) =  Event::edit_user(event_id, user) {
                 stream.write_all(status!(e)).unwrap();
                 return;
             }
         }
 
-        else if Event::add_user(event_id, user, username.to_string()).is_err() {
+        else if Event::add_user(event_id, user).is_err() {
             stream.write_all(status!("404 NOT FOUND")).unwrap();
             return;
         }
@@ -178,7 +189,10 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
         let db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
         match db.get(&event_id) {
             Some(e) => {
-                let json_event = serde_json::to_string(e).unwrap();
+                let Ok(json_event) = serde_json::to_string(e) else {
+                    stream.write_all(status!("500 INTERNAL SERVER ERROR")).unwrap();
+                    return;
+                };
                 stream.write_all(json!(json_event)).unwrap();
                 return;
             },
@@ -189,7 +203,21 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
         };
     }
 
-    let new_event: Event = serde_json::from_str(body).unwrap();
+    let Ok(new_event) = serde_json::from_str::<Event>(body) else {
+        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        return;
+    };
+    
+    if new_event.name.len() > 32  {
+        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        return;
+    }
+
+    if new_event.desc.as_ref().map(|d| d.len() > 256).unwrap_or(false) {
+        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        return;
+    }
+
     Event::edit(event_id, new_event);
 
     stream.write_all(status!("200 OK")).unwrap();

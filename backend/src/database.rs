@@ -28,22 +28,34 @@ type EventList = HashMap<Hash, Event>;
 pub struct Event {
     #[serde(skip)]
     pub edit_hash: Hash,
-    name: String,
-    desc: Option<String>,
+    pub name: String,
+    pub desc: Option<String>,
+    creation_date: u64,
     date: Vec<DateRange>,
     users: HashMap<String, User>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct DateRange(u64, u64);
+pub struct DateRange {
+    from: u64, 
+    to: u64, 
+    preferred: bool,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct User {
     #[serde(skip)]
     pass: u8,
     comment: Option<String>,
-    aval_dates: Vec<DateRange>,
-    pref_dates: Option<Vec<DateRange>>,
+    avail_dates: Vec<DateRange>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UserEntry {
+    pub pass: u8,
+    pub name: String,
+    pub comment: Option<String>,
+    pub avail_dates: Vec<DateRange>,
 }
 
 #[allow(clippy::option_map_unit_fn)]
@@ -55,6 +67,9 @@ pub unsafe fn load_db() {
     let mut db = std::fs::File::open(DB_FILE).unwrap();
     let mut buf = Vec::new();
     db.read_to_end(&mut buf).unwrap();
+
+    // let mut d = GzDecoder::new(buf, Compression::default());
+    // let mut s = String::new();
 
     if buf.is_empty() {
         EVENT_LIST = Some(Mutex::new(HashMap::new()));
@@ -95,12 +110,13 @@ impl Event {
 
     pub fn edit(event_id: Hash, new_event: Self) {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
+        // TODO: dissalow changing creation date and users
 
         db.insert(event_id, new_event);
         unsafe{ store_db(&db) };
     }
 
-    pub fn add_user<'a>(event_id: Hash, user: User, username: String) -> Result<(), &'a str> {
+    pub fn add_user<'a>(event_id: Hash, user: UserEntry) -> Result<(), &'a str> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let Some(event) = db.get_mut(&event_id) else {
@@ -108,18 +124,18 @@ impl Event {
         };
 
         // make sure user doesnt already exist
-        if event.users.contains_key(&username) {
+        if event.users.contains_key(&user.name) {
             return Err("409");
         }
 
-        event.users.insert(username, user);
+        event.users.insert(user.name.clone(), User::from_entry(user));
 
         unsafe{ store_db(&db) };
 
         Ok(())
     }
 
-    pub fn edit_user<'a>(event_id: Hash, username: String, new_user: User) -> Result<(), &'a str> {
+    pub fn edit_user<'a>(event_id: Hash, new_user: UserEntry) -> Result<(), &'a str> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let Some(event) = db.get_mut(&event_id) else {
@@ -127,7 +143,7 @@ impl Event {
         };
 
         // make sure user exists
-        let Some(user) = event.users.get_mut(&username) else {
+        let Some(user) = event.users.get_mut(&new_user.name) else {
             return Err("404 NOT FOUND");
         };
 
@@ -135,11 +151,17 @@ impl Event {
             return Err("403 FORBIDDEN");
         }
 
-        event.users.insert(username, new_user);
+        event.users.insert(new_user.name.clone(), User::from_entry(new_user));
 
         unsafe{ store_db(&db) };
 
         Ok(())
+    }
+}
+
+impl User {
+    fn from_entry(user: UserEntry) -> Self {
+        Self { pass: user.pass, comment: user.comment, avail_dates: user.avail_dates }
     }
 }
 
