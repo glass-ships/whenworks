@@ -5,7 +5,7 @@ use std::str;
 use serde::Serialize;
 
 use threads::ThreadPool;
-use database::{load_db, Event, EVENT_LIST, Hash, UserEntry};
+use database::{load_db, Event, EVENT_LIST, Hash, UserEntry, EventEntry};
 
 mod threads;
 mod macros;
@@ -94,6 +94,11 @@ struct Hashes {
     edit_hash: String,
 }
 
+struct Boiled {
+    pass: [char; 8],
+    name: String,
+}
+
 fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
     let Some(arg) = arg.strip_prefix("/api/") else {
         stream.write_all(status!("404 NOT FOUND")).unwrap();
@@ -112,6 +117,12 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
             stream.write_all(status!("400 BAD REQUEST")).unwrap();
             return;
         };
+
+        if event.name.len() > 32 {
+            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            return;
+        }
+
         let hashes = Event::add(event);
 
         let responce = serde_json::to_string(&Hashes {
@@ -139,6 +150,20 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
             stream.write_all(status!("400 BAD REQUEST")).unwrap();
             return;
         };
+
+        if arg.ends_with("?d") {
+            let Ok(user) = serde_json::from_str::<Boiled>(body) else {
+                stream.write_all(status!("400 BAD REQUEST")).unwrap();
+                return;
+            };
+
+            if let Err(e) = Event::delete_user_en(event_id, &user.name, user.pass) {
+                stream.write_all(status!(e)).unwrap();
+                return;
+            }
+
+            return;
+        }
 
         let Ok(user) = serde_json::from_str::<UserEntry>(body) else {
             stream.write_all(status!("400 BAD REQUEST")).unwrap();
@@ -203,7 +228,7 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
         };
     }
 
-    let Ok(new_event) = serde_json::from_str::<Event>(body) else {
+    let Ok(new_event) = serde_json::from_str::<EventEntry>(body) else {
         stream.write_all(status!("400 BAD REQUEST")).unwrap();
         return;
     };
@@ -218,7 +243,16 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
         return;
     }
 
-    Event::edit(event_id, new_event);
+    if let Some(ref del_usr) = new_event.deleted_users {
+        for user in del_usr {
+            if let Err(e) = Event::delete_user(event_id, user) {
+                stream.write_all(status!(e)).unwrap();
+                return;
+            }
+        }
+    }
+
+    Event::edit(event_id, edit_hash, new_event);
 
     stream.write_all(status!("200 OK")).unwrap();
 }

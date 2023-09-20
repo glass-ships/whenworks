@@ -31,28 +31,37 @@ pub struct Event {
     pub name: String,
     pub desc: Option<String>,
     creation_date: u64,
-    date: Vec<DateRange>,
+    dates: Vec<DateRange>,
     users: HashMap<String, User>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+// TODO delete user/event
+#[derive(Debug, Deserialize)]
+pub struct EventEntry {
+    pub name: String,
+    pub desc: Option<String>,
+    pub dates: Vec<DateRange>,
+    pub deleted_users: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DateRange {
     from: u64, 
     to: u64, 
     preferred: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct User {
     #[serde(skip)]
-    pass: u8,
+    pass: [char; 8],
     comment: Option<String>,
     avail_dates: Vec<DateRange>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UserEntry {
-    pub pass: u8,
+    pub pass: [char; 8],
     pub name: String,
     pub comment: Option<String>,
     pub avail_dates: Vec<DateRange>,
@@ -88,7 +97,23 @@ pub unsafe fn store_db(db: &EventList) {
 }
 
 impl Event {
-    pub fn add(mut event: Self) -> (Hash, Hash) {
+    fn from_entry(
+        edit_hash: [char; 6], 
+        creation_date: u64, 
+        event: EventEntry, 
+        users: HashMap<String, User>
+    ) -> Self {
+        Self { 
+            edit_hash,
+            name: event.name,
+            desc: event.desc,
+            creation_date,
+            dates: event.dates,
+            users,
+        }
+    }
+
+    pub fn add(mut event: Event) -> (Hash, Hash) {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let mut event_uid = gen_hash();
@@ -108,14 +133,27 @@ impl Event {
         (event_uid, edit_hash)
     }
 
-    pub fn edit(event_id: Hash, new_event: Self) {
+    pub fn edit(event_id: Hash, edit: [char; 6], new_event: EventEntry){
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
         // TODO: dissalow changing creation date and users
 
-        db.insert(event_id, new_event);
+        let Some(event) = db.get(&event_id) else {
+            return;
+        };
+        let creation_date = event.creation_date;
+        let users = event.users.clone();   // FIXME this is pretty bad
+
+        db.insert(event_id, Event::from_entry(edit, creation_date, new_event, users));
         unsafe{ store_db(&db) };
     }
 
+    // pub fn delete(event_id: Hash) {
+    //     let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
+    //
+    //     db.remove(&event_id);
+    //     unsafe{ store_db(&db) };
+    // }
+    //
     pub fn add_user<'a>(event_id: Hash, user: UserEntry) -> Result<(), &'a str> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
@@ -143,7 +181,7 @@ impl Event {
         };
 
         // make sure user exists
-        let Some(user) = event.users.get_mut(&new_user.name) else {
+        let Some(user) = event.users.get(&new_user.name) else {
             return Err("404 NOT FOUND");
         };
 
@@ -152,6 +190,48 @@ impl Event {
         }
 
         event.users.insert(new_user.name.clone(), User::from_entry(new_user));
+
+        unsafe{ store_db(&db) };
+
+        Ok(())
+    }
+
+    pub fn delete_user(event_id: Hash, user_name: &str) -> Result<(), &'static str> {
+        let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
+
+        let Some(event) = db.get_mut(&event_id) else {
+            return Err("404 NOT FOUND");
+        };
+
+        // make sure user exists
+        if !event.users.contains_key(user_name) {
+            return Err("404 NOT FOUND");
+        }
+
+        event.users.remove(user_name);
+
+        unsafe{ store_db(&db) };
+
+        Ok(())
+    }
+    
+    pub fn delete_user_en(event_id: Hash, user_name: &str, pass: [char; 8]) -> Result<(), &'static str> {
+        let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
+
+        let Some(event) = db.get_mut(&event_id) else {
+            return Err("404 NOT FOUND");
+        };
+
+        // make sure user exists
+        let Some(user) = event.users.get(user_name) else {
+            return Err("404 NOT FOUND");
+        };
+
+        if pass != user.pass {
+            return Err("403 FORBIDDEN");
+        }
+
+        event.users.remove(user_name);
 
         unsafe{ store_db(&db) };
 
