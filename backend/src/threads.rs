@@ -49,4 +49,3 @@ impl Worker {
         Self(Some(thread))
     }
 }
-

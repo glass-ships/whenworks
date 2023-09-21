@@ -158,7 +158,7 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
             return;
         }
 
-        let Ok(event) = serde_json::from_str::<EventEntry>(body) else {
+        let Ok(event) = serde_json::from_str::<Event>(body) else {
             resp!(stream, 422, "invalid json in request body");
             return;
         };
