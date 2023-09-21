@@ -1,17 +1,25 @@
-use std::io::Read;
+use libc::{c_uint, srand, rand, time};
+
+use std::ptr::null_mut;
+use std::io::{Read, Write};
 use std::collections::HashMap;
-use std::sync::{Mutex, Once};
+use std::sync::Mutex;
+use std::process::exit;
+
+use crate::args_parser::ARGS;
+use crate::logger::{logger, Level};
+use crate::log;
 
 use serde::{Deserialize, Serialize};
-use rand::Rng;
+use flate2::{
+    Compression,
+    read::GzDecoder,
+    write::ZlibEncoder,
+};
 
 pub static mut EVENT_LIST: Option<Mutex<EventList>> = None;
-static INIT_EVENT: Once = Once::new();
 
-// default db file
-static mut DB_FILE: &str = "db.bin";
-
-const ALPHANUMARIC: [char; 62] = [
+const ALPHANUMERIC: [char; 62] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 
     'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 
@@ -20,6 +28,15 @@ const ALPHANUMARIC: [char; 62] = [
     'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 
     'U', 'V', 'W', 'X', 'Y', 'Z',
 ];
+
+unsafe fn gen_hash() -> Hash {
+    // seed the rand
+    srand(time(null_mut()) as c_uint);
+
+    let mut buf = ['\0'; 6];
+    (0..6).for_each(|i| buf[i] = ALPHANUMERIC[(rand() % 62) as usize]);
+    buf
+}
 
 pub type Hash = [char; 6];
 type EventList = HashMap<Hash, Event>;
@@ -67,33 +84,56 @@ pub struct UserEntry {
     pub avail_dates: Vec<DateRange>,
 }
 
-#[allow(clippy::option_map_unit_fn)]
 pub unsafe fn load_db() { 
-    INIT_EVENT.call_once(|| {
-        std::env::var("DB_FILE").ok().map(|s| DB_FILE = Box::leak(s.into_boxed_str()));
-    });
+    let mut db = match std::path::Path::new(ARGS.db_file).exists() {
+        true => {
+            std::fs::File::open(ARGS.db_file).unwrap_or_else(|e| {
+                log!(Level::Fatal, e);
+                exit(1);
+            })
+        },
+        false => {
+            log!("db file not found, creating...");
+            std::fs::File::create(ARGS.db_file).unwrap_or_else(|e| {
+                log!(Level::Fatal, e);
+                exit(1);
+            })
+        },
+    };
 
-    let mut db = std::fs::File::open(DB_FILE).unwrap();
     let mut buf = Vec::new();
-    db.read_to_end(&mut buf).unwrap();
-
-    // let mut d = GzDecoder::new(buf, Compression::default());
-    // let mut s = String::new();
+    if let Err(e) = db.read_to_end(&mut buf) {
+        log!(Level::Fatal, e);
+        exit(1);
+    };
 
     if buf.is_empty() {
         EVENT_LIST = Some(Mutex::new(HashMap::new()));
         return;
     }
 
+    // decompress
+    let mut decomp = GzDecoder::new(&*buf);
+    let mut buf = Vec::new();
+    decomp.read_to_end(&mut buf).unwrap();
+
+    // decode bincode
     let db_de: EventList = bincode::deserialize(&buf).unwrap();
 
     EVENT_LIST = Some(Mutex::new(db_de));
 }
 
+// TODO: have this only happen every X time, and have a graceful sutdown,
+// we already have a cache in mem for the entirety of this so its cool to wait
 pub unsafe fn store_db(db: &EventList) {
+    // encode bincode
     let db_ser = bincode::serialize(db).unwrap();
 
-    std::fs::write(DB_FILE, db_ser).unwrap();
+    // compress
+    let mut comp = ZlibEncoder::new(Vec::new(), Compression::default());
+    comp.write_all(&db_ser).unwrap();
+
+    std::fs::write(ARGS.db_file, comp.finish().unwrap()).unwrap();
 }
 
 impl Event {
@@ -116,15 +156,15 @@ impl Event {
     pub fn add(mut event: Event) -> (Hash, Hash) {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
-        let mut event_uid = gen_hash();
+        let mut event_uid = unsafe{ gen_hash() };
 
         // make sure its unique
         while db.contains_key(&event_uid) {
-            event_uid = gen_hash();
+            event_uid = unsafe{ gen_hash() };
         }
 
         // add event and edit hash to db
-        let edit_hash = gen_hash();
+        let edit_hash = unsafe{ gen_hash() };
         event.edit_hash = edit_hash;
 
         db.insert(event_uid, event);
@@ -140,6 +180,7 @@ impl Event {
         let Some(event) = db.get(&event_id) else {
             return;
         };
+
         let creation_date = event.creation_date;
         let users = event.users.clone();   // FIXME this is pretty bad
 
@@ -154,16 +195,16 @@ impl Event {
     //     unsafe{ store_db(&db) };
     // }
     //
-    pub fn add_user<'a>(event_id: Hash, user: UserEntry) -> Result<(), &'a str> {
+    pub fn add_user<'a>(event_id: Hash, user: UserEntry) -> Result<(), (u16, &'a str)> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let Some(event) = db.get_mut(&event_id) else {
-            return Err("404");
+            return Err((404, "event doesn not exist"));
         };
 
         // make sure user doesnt already exist
         if event.users.contains_key(&user.name) {
-            return Err("409");
+            return Err((409, "user already exists"));
         }
 
         event.users.insert(user.name.clone(), User::from_entry(user));
@@ -173,20 +214,20 @@ impl Event {
         Ok(())
     }
 
-    pub fn edit_user<'a>(event_id: Hash, new_user: UserEntry) -> Result<(), &'a str> {
+    pub fn edit_user<'a>(event_id: Hash, new_user: UserEntry) -> Result<(), (u16, &'a str)> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let Some(event) = db.get_mut(&event_id) else {
-            return Err("404 NOT FOUND");
+            return Err((404, "event doesn not exist"));
         };
 
         // make sure user exists
         let Some(user) = event.users.get(&new_user.name) else {
-            return Err("404 NOT FOUND");
+            return Err((404, "user does not exist"));
         };
 
         if user.pass != new_user.pass {
-            return Err("403 FORBIDDEN");
+            return Err((403, "incorrect password"));
         }
 
         event.users.insert(new_user.name.clone(), User::from_entry(new_user));
@@ -196,16 +237,16 @@ impl Event {
         Ok(())
     }
 
-    pub fn delete_user(event_id: Hash, user_name: &str) -> Result<(), &'static str> {
+    pub fn delete_user<'a>(event_id: Hash, user_name: &str) -> Result<(), (u16, &'a str)> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let Some(event) = db.get_mut(&event_id) else {
-            return Err("404 NOT FOUND");
+            return Err((404, "event doesn not exist"));
         };
 
         // make sure user exists
         if !event.users.contains_key(user_name) {
-            return Err("404 NOT FOUND");
+            return Err((404, "user does not exist"));
         }
 
         event.users.remove(user_name);
@@ -215,20 +256,20 @@ impl Event {
         Ok(())
     }
     
-    pub fn delete_user_en(event_id: Hash, user_name: &str, pass: [char; 8]) -> Result<(), &'static str> {
+    pub fn delete_user_en<'a>(event_id: Hash, user_name: &str, pass: [char; 8]) -> Result<(), (u16, &'a str)> {
         let mut db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
 
         let Some(event) = db.get_mut(&event_id) else {
-            return Err("404 NOT FOUND");
+            return Err((404, "event doesn not exist"));
         };
 
         // make sure user exists
         let Some(user) = event.users.get(user_name) else {
-            return Err("404 NOT FOUND");
+            return Err((404, "user does not exist"));
         };
 
         if pass != user.pass {
-            return Err("403 FORBIDDEN");
+            return Err((403, "incorrect password"));
         }
 
         event.users.remove(user_name);
@@ -245,10 +286,3 @@ impl User {
     }
 }
 
-fn gen_hash() -> Hash {
-    let mut rng = rand::thread_rng();
-    let mut buf: Hash = ['\0'; 6];
-
-    (0..6).for_each(|i| buf[i] = ALPHANUMARIC[rng.gen_range(0..62)]);
-    buf
-}

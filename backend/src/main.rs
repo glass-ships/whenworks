@@ -1,30 +1,46 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
 use std::str;
+use std::process::exit;
 
 use serde::{Serialize, Deserialize};
 
 use threads::ThreadPool;
 use database::{load_db, Event, EVENT_LIST, Hash, UserEntry, EventEntry};
+use macros::Type;
+use logger::{Level, logger};
+use args_parser::ARGS;
 
 mod threads;
 mod macros;
 mod database;
+mod logger;
+mod args_parser;
 
-const ADDR: &str = "127.0.0.1:8080";
-const ROOT_: &str = "index.html";
 const HTTP: &str = "HTTP/1.1";
+const POLICY: &str = "Access-Control-Allow-Origin: *";
 
 fn main() {
-    let listener = TcpListener::bind(ADDR).unwrap();
+    args_parser::init_args();
+
+    let Ok(listener) = TcpListener::bind(unsafe{ARGS.addr}) else {
+        log!(Level::Fatal, "Failed to bind to address");
+        exit(1);
+    };
+
     let pool = ThreadPool::new(4);
 
     unsafe{ load_db(); }
 
     for stream in listener.incoming() {
-        pool.execute(|| handle_conn(stream.unwrap()));
+        let Ok(stream) = stream else {
+            log!(Level::Error, "Failed to accept connection");
+            continue;
+        };
+        pool.execute(|| handle_conn(stream));
     }
 }
+
 
 fn handle_conn(mut stream: TcpStream) {
     let mut buf = [0; 1024];
@@ -32,15 +48,18 @@ fn handle_conn(mut stream: TcpStream) {
         Ok(b) if b == 0 => return,
         Ok(b) => b,
         Err(e) => {
-            eprintln!("Failed to read from stream: {}", e);
+            log!(Level::Error, e);
             return;
         },
     };
 
-    let req = str::from_utf8(&buf[..bytes_]).unwrap();
+    let Ok(req) = str::from_utf8(&buf[..bytes_]) else {
+        resp!(stream, 400, "invalid utf8");
+        return;
+    };
     let (head, body) = req.split_once("\r\n\r\n").unwrap_or((req, ""));
 
-    eprintln!("\nHead: \n{head}\n\nBody: \n{body}");
+    log!(Level::Debug, format!("\nHead: \n{head}\n\nBody: \n{body}"));
 
     let type_ = head.lines().next().unwrap().split_whitespace().collect::<Vec<&str>>();
     // example: GET / HTTP/1.1_
@@ -51,7 +70,10 @@ fn handle_conn(mut stream: TcpStream) {
     match type_[0] {
         "GET" => handle_get(type_[1], &mut stream),
         "POST" => handle_post(type_[1], body, &mut stream),
-        _ => stream.write_all(status!("400 BAD REQUEST")).unwrap(),
+        _ => {
+            log!(Level::Warn, format!("Recieved unhandled request type: `{}`", type_[0]));
+            resp!(stream, 400, "Unhandled Request Type");
+        },
     }
 
     stream.flush().unwrap();
@@ -59,33 +81,55 @@ fn handle_conn(mut stream: TcpStream) {
 
 fn handle_get(arg: &str, stream: &mut TcpStream) {
     // FIXME: for now ignore favicon requests
-    if arg == "/favicon.ico" { return; }
+    if arg == "/favicon.ico" { 
+        let Ok(mut icon) = std::fs::File::open("favicon.ico") else {
+            resp!(stream, 500, "failed to read favicon");
+            log!(Level::Error, "favicon.ico not found");
+            return;
+        };
+        let mut buf = Vec::new();
+        icon.read_to_end(&mut buf).unwrap();
+
+
+        let resp = format!("{HTTP} 200 OK\r\nContent-Type: image/x-icon\r\n{POLICY}\r\nContent-Length: {}\r\n\r\n", buf.len());
+        let resp = &[resp.as_bytes(), &buf].concat();
+        stream.write_all(resp).unwrap_or_else(|e| log!(Level::Error, e))
+    }
     
     let Some(arg) = arg.strip_prefix("/api/") else {
-        stream.write_all(file!(std::fs::read_to_string(ROOT_).unwrap())).unwrap();
+        let Ok(file) = std::fs::read_to_string(unsafe{ARGS.index_file}) else {
+            resp!(stream, 500, "failed to read root file");
+            log!(Level::Error, "index file not found");
+            return;
+        };
+        resp!(stream, 200, Type::Html, file);
         return;
     };
     
     // parse arg into event id
     if arg.len() != 6 {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, format!("invalid event id length. expected 6, got {}", arg.len()));
         return;
     }
 
     let db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
     let Some(ref event_id) = str_to_hash(arg) else {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, "event id is not a valid hash");
         return;
     };
     let Some(event) = db.get(event_id) else {
-        stream.write_all(status!("404 NOT FOUND")).unwrap();
+        resp!(stream, 404, "event does not exist");
         return;
     };
 
-    let json_event = serde_json::to_string(event).unwrap();
+    let Ok(json_event) = serde_json::to_string(event) else {
+        resp!(stream, 500, "failed to serialize event");
+        return;
+    };
+
     dbg!(&json_event);
     
-    stream.write_all(json!(json_event)).unwrap();
+    resp!(stream, 200, Type::Json, json_event);
 }
 
 #[derive(Serialize)]
@@ -102,7 +146,7 @@ struct Boiled {
 
 fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
     let Some(arg) = arg.strip_prefix("/api/") else {
-        stream.write_all(status!("404 NOT FOUND")).unwrap();
+        resp!(stream, 400);
         return;
     };
 
@@ -110,102 +154,107 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
     // create a new event
     if arg == "new" {
         if body.is_empty() {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            resp!(stream, 422, "missing body");
             return;
         }
 
-        let Ok(event) = serde_json::from_str::<Event>(body) else {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        let Ok(event) = serde_json::from_str::<EventEntry>(body) else {
+            resp!(stream, 422, "invalid json in request body");
             return;
         };
 
         if event.name.len() > 32 {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            resp!(stream, 400, format!("event name too long. max 32, current {}", event.name.len()));
             return;
         }
 
         let hashes = Event::add(event);
 
-        let responce = serde_json::to_string(&Hashes {
+        let Ok(responce) = serde_json::to_string(&Hashes {
             event_id: hash_to_str(hashes.0),
             edit_hash: hash_to_str(hashes.1),
-        }).unwrap();
+        }) else {
+            resp!(stream, 500, "failed to serialize responce");
+            return;
+        };
 
-        stream.write_all(json!(responce)).unwrap();
+        resp!(stream, 200, Type::Json, responce);
         return;
     }
 
     if arg.ends_with("/usr") && !arg.starts_with("//usr"){
-
         let arg_ = match arg.ends_with("?e") {
             true => &arg[1..arg.len()-2],
             false => &arg[1..],
         };
 
         let Some((event_id, _)) = arg_.split_once('/') else {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            resp!(stream, 400, "missing event id");
             return;
         };
 
         let Some(event_id) = str_to_hash(event_id) else {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            resp!(stream, 400, "event id is not a valid hash");
             return;
         };
 
-        if arg.ends_with("?d") {
-            let Ok(user) = serde_json::from_str::<Boiled>(body) else {
-                stream.write_all(status!("400 BAD REQUEST")).unwrap();
-                return;
-            };
-
-            if let Err(e) = Event::delete_user_en(event_id, &user.name, user.pass) {
-                stream.write_all(status!(e)).unwrap();
-                return;
-            }
-
+        if body.is_empty() {
+            resp!(stream, 422, "missing body");
             return;
         }
 
+        if arg.ends_with("?d") {
+            let Ok(user) = serde_json::from_str::<Boiled>(body) else {
+                resp!(stream, 422, "invalid json in request body");
+                return;
+            };
+
+            if let Err((c, r)) = Event::delete_user_en(event_id, &user.name, user.pass) {
+                resp!(stream, c, r);
+                return;
+            } return;
+        }
+
         let Ok(user) = serde_json::from_str::<UserEntry>(body) else {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            resp!(stream, 422, "invalid json in request body");
             return;
         };
 
         if user.name.len() > 32 {
-            stream.write_all(status!("400 BAD REQUEST")).unwrap();
+            resp!(stream, 400, format!("user name too long. max 32, current {}", user.name.len()));
             return;
         }
 
         if arg.ends_with("?e") {
-            if let Err(e) =  Event::edit_user(event_id, user) {
-                stream.write_all(status!(e)).unwrap();
+            if let Err((c, r)) =  Event::edit_user(event_id, user) {
+                resp!(stream, c, r);
                 return;
             }
         }
 
-        else if Event::add_user(event_id, user).is_err() {
-            stream.write_all(status!("404 NOT FOUND")).unwrap();
+        else if let Err((c, r)) = Event::add_user(event_id, user) {
+            resp!(stream, c, r);
             return;
         }
 
-        stream.write_all(status!("200 OK")).unwrap();
+        resp!(stream, 200);
         return;
     }
 
     //
     // edit an event
     let Some((event_id, edit_hash)) = arg[1..].split_once('?') else {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, "missing edit hash");
         return;
     };
 
     let Some(event_id) = str_to_hash(event_id) else {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, "event id is not a valid hash");
         return;
     };
 
     let Some(edit_hash) = str_to_hash(edit_hash) else {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, "edit hash is not a valid hash");
         return;
     };
 
@@ -216,38 +265,38 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
         match db.get(&event_id) {
             Some(e) => {
                 let Ok(json_event) = serde_json::to_string(e) else {
-                    stream.write_all(status!("500 INTERNAL SERVER ERROR")).unwrap();
+                    resp!(stream, 500, "failed to serialize event");
                     return;
                 };
-                stream.write_all(json!(json_event)).unwrap();
+                resp!(stream, 200, Type::Json, json_event);
                 return;
             },
             None => {
-                stream.write_all(status!("404 NOT FOUND")).unwrap();
+                resp!(stream, 404, "event does not exist");
                 return;
             }
         };
     }
 
     let Ok(new_event) = serde_json::from_str::<EventEntry>(body) else {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 422, "invalid json in request body");
         return;
     };
     
     if new_event.name.len() > 32  {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, format!("event name too long. max 32, current {}", new_event.name.len()));   
         return;
     }
 
     if new_event.desc.as_ref().map(|d| d.len() > 256).unwrap_or(false) {
-        stream.write_all(status!("400 BAD REQUEST")).unwrap();
+        resp!(stream, 400, format!("event description too long. max 256, current {}", new_event.desc.as_ref().unwrap().len()));
         return;
     }
 
     if let Some(ref del_usr) = new_event.deleted_users {
         for user in del_usr {
-            if let Err(e) = Event::delete_user(event_id, user) {
-                stream.write_all(status!(e)).unwrap();
+            if let Err((c, r)) = Event::delete_user(event_id, user) {
+                resp!(stream, c, r);
                 return;
             }
         }
@@ -255,7 +304,7 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
 
     Event::edit(event_id, edit_hash, new_event);
 
-    stream.write_all(status!("200 OK")).unwrap();
+    resp!(stream, 200);
 }
 
 fn validate_key(event_id: Hash, edit_hash: Hash, stream: &mut TcpStream) -> bool {
@@ -263,11 +312,11 @@ fn validate_key(event_id: Hash, edit_hash: Hash, stream: &mut TcpStream) -> bool
 
     match db.get(&event_id) {
         Some(e) if e.edit_hash != edit_hash => {
-            stream.write_all(status!("403 FORBIDDEN")).unwrap();
+            resp!(stream, 403, "invalid edit hash");
             false
         },
         None => {
-            stream.write_all(status!("404 NOT FOUND")).unwrap();
+            resp!(stream, 404, "event does not exist");
             false
         },
         _ => true,
@@ -286,3 +335,4 @@ fn str_to_hash(s: &str) -> Option<Hash> {
 fn hash_to_str(hash: Hash) -> String {
     hash.iter().collect::<String>()
 }
+

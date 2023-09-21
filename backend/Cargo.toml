@@ -4,13 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# rusqlite = { version = "0.29.0", features = ["bundled"] }
-# hashbrown = "0.14.0"
-rand = "0.8.5"
+# encodng/decoding
+base64 = "0.21.4"
 bincode = "1.3.3"
+flate2 = { version = "1.0.27", features = ["zlib"], default-features = false }
+
+# serializing/deserializing
 serde = { version = "^1.0", features = ["derive", "rc"] }
 serde_json = "1.0.105"
-# flate2 = { version = "1.0.27", features = ["zlib"], default-features = false }
+
+# rand nums
+libc = "0.2"
+
+[profile.release.packages."*"]
+opt-level = 3
 
 [profile.release]
 lto = true

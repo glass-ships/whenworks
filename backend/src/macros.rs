@@ -1,21 +1,56 @@
 #[macro_export]
-macro_rules! status {
+macro_rules! resp {
+    ($stream:ident, $($resp:expr),*) => {
+        $stream.write_all(fmt!($($resp),*).as_bytes()).unwrap_or_else(|e| log!(Level::Error, e))
+    };
+}
+
+pub enum Type {
+    Html,
+    Json,
+}
+
+#[macro_export]
+macro_rules! fmt {
+    ($code:expr, $type:expr, $content:expr) => {
+        format!("{HTTP} {} {}\r\nContent-Type: {}\r\n{POLICY}\r\nContent-Length: {}\r\n\r\n{}",
+        $code, match $code {
+            200 => "OK",
+            400 => "BAD REQUEST",
+            403 => "FORBIDDEN",
+            404 => "NOT FOUND",
+            409 => "CONFLICT",
+            422 => "UNPROCESSABLE ENTITY",
+            500 => "INTERNAL SERVER ERROR",
+            _   => "UNHANDLED",
+        }, match $type {
+            Type::Html  => "text/html",
+            Type::Json  => "application/json",
+        }, $content.len(), $content)
+    };
+    ($code:expr, $content:expr) => {
+        format!("{HTTP} {} {}\r\nContent-Type: text/plain\r\n{POLICY}\r\nContent-Length: {}\r\n\r\n{}",
+        $code, match $code {
+            200 => "OK",
+            400 => "BAD REQUEST",
+            403 => "FORBIDDEN",
+            404 => "NOT FOUND",
+            409 => "CONFLICT",
+            422 => "UNPROCESSABLE ENTITY",
+            500 => "INTERNAL SERVER ERROR",
+            _   => "UNHANDLED",
+        }, $content.len(), $content)
+    };
     ($code:expr) => {
-        format!("{HTTP} {code}\r\n\r\n", code=$code).as_bytes()
+        format!("{HTTP} {} {}\r\n\r\n", $code, match $code {
+            200 => "OK",
+            400 => "BAD REQUEST",
+            403 => "FORBIDDEN",
+            404 => "NOT FOUND",
+            409 => "CONFLICT",
+            422 => "UNPROCESSABLE ENTITY",
+            500 => "INTERNAL SERVER ERROR",
+            _   => "UNHANDLED",
+        })
     };
 }
-
-#[macro_export]
-macro_rules! file {
-    ($contents:expr) => {
-        format!("{HTTP} 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len}\r\n\r\n{contents}", len=$contents.len(), contents=$contents).as_bytes()
-    };
-}
-
-#[macro_export]
-macro_rules! json {
-    ($contents:expr) => {
-        format!("{HTTP} 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len}\r\nContent-Type: application/json\r\n\r\n{contents}", len=$contents.len(), contents=$contents).as_bytes()
-    };
-}
-
