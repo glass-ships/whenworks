@@ -80,7 +80,7 @@ fn handle_conn(mut stream: TcpStream) {
 }
 
 fn handle_get(arg: &str, stream: &mut TcpStream) {
-    // FIXME: for now ignore favicon requests
+    // handle favicon
     if arg == "/favicon.ico" { 
         let Ok(mut icon) = std::fs::File::open("favicon.ico") else {
             resp!(stream, 500, "failed to read favicon");
@@ -90,16 +90,16 @@ fn handle_get(arg: &str, stream: &mut TcpStream) {
         let mut buf = Vec::new();
         icon.read_to_end(&mut buf).unwrap();
 
-
         let resp = format!("{HTTP} 200 OK\r\nContent-Type: image/x-icon\r\n{POLICY}\r\nContent-Length: {}\r\n\r\n", buf.len());
         let resp = &[resp.as_bytes(), &buf].concat();
         stream.write_all(resp).unwrap_or_else(|e| log!(Level::Error, e))
     }
     
     let Some(arg) = arg.strip_prefix("/api/") else {
+        // handle root
         let Ok(file) = std::fs::read_to_string(unsafe{ARGS.index_file}) else {
-            resp!(stream, 500, "failed to read root file");
             log!(Level::Error, "index file not found");
+            resp!(stream, 500, "failed to read root file");
             return;
         };
         resp!(stream, 200, Type::Html, file);

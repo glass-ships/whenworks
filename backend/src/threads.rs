@@ -43,7 +43,12 @@ impl Worker {
         let thread = thread::Builder::new()
             .name(format!("worker-#{}", id))
             .spawn(move || {
-                while let Ok(job) = receiver.lock().unwrap().recv() { job(); }
+                loop {
+                    let lock = receiver.lock().unwrap();
+                    let job = lock.recv().unwrap();
+                    drop(lock);
+                    job();
+                }
             }).unwrap();
 
         Self(Some(thread))

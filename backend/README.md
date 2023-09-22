@@ -63,7 +63,7 @@ body
             "preferred": false
         }
     ],
-    users: {},
+    "users": {},
 }
 ```
 
