@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 use threads::ThreadPool;
 use database::{load_db, Event, EVENT_LIST, Hash, UserEntry, EventEntry};
 use macros::Type;
-use logger::{Level, logger};
+use logger::{logger, FATAL, WARN, ERROR, DEBUG, INFO};
 use args_parser::ARGS;
 
 mod threads;
@@ -24,7 +24,7 @@ fn main() {
     args_parser::init_args();
 
     let Ok(listener) = TcpListener::bind(unsafe{ARGS.addr}) else {
-        log!(Level::Fatal, "Failed to bind to address");
+        log!(FATAL, "Failed to bind to address");
         exit(1);
     };
 
@@ -34,7 +34,7 @@ fn main() {
 
     for stream in listener.incoming() {
         let Ok(stream) = stream else {
-            log!(Level::Error, "Failed to accept connection");
+            log!(ERROR, "Failed to accept connection");
             continue;
         };
         pool.execute(|| handle_conn(stream));
@@ -48,7 +48,7 @@ fn handle_conn(mut stream: TcpStream) {
         Ok(b) if b == 0 => return,
         Ok(b) => b,
         Err(e) => {
-            log!(Level::Error, e);
+            log!(ERROR, "{e}");
             return;
         },
     };
@@ -59,7 +59,7 @@ fn handle_conn(mut stream: TcpStream) {
     };
     let (head, body) = req.split_once("\r\n\r\n").unwrap_or((req, ""));
 
-    log!(Level::Debug, format!("\nHead: \n{head}\n\nBody: \n{body}"));
+    log!(DEBUG, "\nHead: \n{head}\n\nBody: \n{body}");
 
     let type_ = head.lines().next().unwrap().split_whitespace().collect::<Vec<&str>>();
     // example: GET / HTTP/1.1_
@@ -71,7 +71,7 @@ fn handle_conn(mut stream: TcpStream) {
         "GET" => handle_get(type_[1], &mut stream),
         "POST" => handle_post(type_[1], body, &mut stream),
         _ => {
-            log!(Level::Warn, format!("Recieved unhandled request type: `{}`", type_[0]));
+            log!(WARN, "Recieved unhandled request type: `{}`", type_[0]);
             resp!(stream, 400, "Unhandled Request Type");
         },
     }
@@ -84,7 +84,7 @@ fn handle_get(arg: &str, stream: &mut TcpStream) {
     if arg == "/favicon.ico" { 
         let Ok(mut icon) = std::fs::File::open("favicon.ico") else {
             resp!(stream, 500, "failed to read favicon");
-            log!(Level::Error, "favicon.ico not found");
+            log!(ERROR, "favicon.ico not found");
             return;
         };
         let mut buf = Vec::new();
@@ -92,13 +92,13 @@ fn handle_get(arg: &str, stream: &mut TcpStream) {
 
         let resp = format!("{HTTP} 200 OK\r\nContent-Type: image/x-icon\r\n{POLICY}\r\nContent-Length: {}\r\n\r\n", buf.len());
         let resp = &[resp.as_bytes(), &buf].concat();
-        stream.write_all(resp).unwrap_or_else(|e| log!(Level::Error, e))
+        stream.write_all(resp).unwrap_or_else(|e| log!(ERROR, "{e}"))
     }
     
     let Some(arg) = arg.strip_prefix("/api/") else {
         // handle root
         let Ok(file) = std::fs::read_to_string(unsafe{ARGS.index_file}) else {
-            log!(Level::Error, "index file not found");
+            log!(ERROR, "index file not found");
             resp!(stream, 500, "failed to read root file");
             return;
         };
@@ -146,7 +146,7 @@ struct Boiled {
 
 fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
     let Some(arg) = arg.strip_prefix("/api/") else {
-        resp!(stream, 400);
+        resp!(stream, 400, "no op");
         return;
     };
 

@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! resp {
     ($stream:ident, $($resp:expr),*) => {
-        $stream.write_all(fmt!($($resp),*).as_bytes()).unwrap_or_else(|e| log!(Level::Error, e))
+        $stream.write_all(fmt!($($resp),*).as_bytes()).unwrap_or_else(|e| log!(ERROR, "{e}"))
     };
 }
 
