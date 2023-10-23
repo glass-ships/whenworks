@@ -1,45 +1,44 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-// import viteLogo from "/vite.svg";
-import axios from 'axios';
-import Header from "./sections/Header";
+// import { request } from "@/utils/request";
+import { getEvent } from "@/utils/db_utils";
+import Header from "@/sections/Header";
 import "./App.css";
 
-//  from https://github.dev/blekhmanlab/compendium_website
-// export const request = async <Type>(
-//   url: string,
-//   type: "json" | "text" = "json",
-// ) => {
-//   const options: RequestInit = { redirect: "follow" };
-//   const response = await fetch(url, options);
-//   if (!response.ok) throw Error("Response not OK");
-//   if (type === "text") return (await response.text()) as Type;
-//   else return (await response.json()) as Type;
-// };
 
 function App() {
   const [count, setCount] = useState(0);
 
-  axios.get('http://localhost:8080').then((response) => {
-    console.log(response);
-  }
-  );
+  // const r = requestSimple('http://localhost:8080/api/Wu0rwE') 
+  // const r = request('Wu0rwE');
+  // r.then((response) => {
+  //   console.log(response);
+  // });
+
+  const event = getEvent('Wu0rwE');
+  console.log(event);
 
   return (
     <>
-      <Header />
       <div>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        <Header />
+        <h2>Find a time that works for everyone</h2>
       </div>
       <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>count is {count}</button>
+        <h3>Create a New Event</h3>
+        <div>
+          Form goes here
+        </div>
         <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
+          <button
+            onClick={() => {
+              setCount(count + 1);
+              console.log("count", count);
+            }}
+          >
+            Create event
+          </button>
         </p>
       </div>
-      <p className="read-the-docs">Click on the Vite and React logos to learn more</p>
     </>
   );
 } 
