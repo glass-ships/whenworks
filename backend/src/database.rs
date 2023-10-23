@@ -1,3 +1,5 @@
+use super::*;
+
 use libc::{c_uint, srand, rand, time};
 
 use std::ptr::null_mut;
@@ -7,7 +9,6 @@ use std::sync::Mutex;
 use std::process::exit;
 
 use crate::args_parser::ARGS;
-use crate::logger::{logger, Level};
 use crate::log;
 
 use serde::{Deserialize, Serialize};
@@ -88,14 +89,18 @@ pub unsafe fn load_db() {
     let mut db = match std::path::Path::new(ARGS.db_file).exists() {
         true => {
             std::fs::File::open(ARGS.db_file).unwrap_or_else(|e| {
-                log!(Level::Fatal, e);
+                log!(ERROR, "{}", e);
                 exit(1);
             })
         },
         false => {
-            log!("db file not found, creating...");
+            log!(INFO, "db file not found, creating...");
             std::fs::File::create(ARGS.db_file).unwrap_or_else(|e| {
-                log!(Level::Fatal, e);
+                log!(ERROR, "{}", e);
+                exit(1);
+            });
+            std::fs::File::open(ARGS.db_file).unwrap_or_else(|e| {
+                log!(ERROR, "{}", e);
                 exit(1);
             })
         },
@@ -103,7 +108,7 @@ pub unsafe fn load_db() {
 
     let mut buf = Vec::new();
     if let Err(e) = db.read_to_end(&mut buf) {
-        log!(Level::Fatal, e);
+        log!(ERROR, "{}", e);
         exit(1);
     };
 
@@ -113,9 +118,9 @@ pub unsafe fn load_db() {
     }
 
     // decompress
-    let mut decomp = GzDecoder::new(&*buf);
-    let mut buf = Vec::new();
-    decomp.read_to_end(&mut buf).unwrap();
+    // let mut decomp = GzDecoder::new(&*buf);
+    // let mut buf = Vec::new();
+    // decomp.read_to_end(&mut buf).unwrap();
 
     // decode bincode
     let db_de: EventList = bincode::deserialize(&buf).unwrap();
@@ -123,17 +128,24 @@ pub unsafe fn load_db() {
     EVENT_LIST = Some(Mutex::new(db_de));
 }
 
-// TODO: have this only happen every X time, and have a graceful sutdown,
+// TODO: have this only happen every X time, and have a graceful shutdown,
 // we already have a cache in mem for the entirety of this so its cool to wait
 pub unsafe fn store_db(db: &EventList) {
     // encode bincode
-    let db_ser = bincode::serialize(db).unwrap();
+    let db_ser = match bincode::serialize(db) {
+        Ok(db_ser) => db_ser,
+        Err(e) => {
+            log!(ERROR, "failed to serialize db {}", e);
+            exit(1);
+        },
+    };
 
     // compress
-    let mut comp = ZlibEncoder::new(Vec::new(), Compression::default());
-    comp.write_all(&db_ser).unwrap();
+    // let mut comp = ZlibEncoder::new(Vec::new(), Compression::default());
+    // comp.write_all(&db_ser).unwrap();
 
-    std::fs::write(ARGS.db_file, comp.finish().unwrap()).unwrap();
+    // std::fs::write(ARGS.db_file, comp.finish().unwrap()).unwrap();
+    std::fs::write(ARGS.db_file, db_ser).unwrap();
 }
 
 impl Event {

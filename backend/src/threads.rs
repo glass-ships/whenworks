@@ -1,5 +1,6 @@
 use std::thread::{self, JoinHandle};
 use std::sync::{mpsc, Arc, Mutex};
+use std::panic;
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
@@ -15,7 +16,7 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(size);
 
-        (0..size).for_each(|i| workers.push(Worker::new(i, receiver.clone())));
+        (0..size).for_each(|i| workers.push(Worker::new(i, Arc::clone(&receiver))));
         Self { workers, sender: Some(sender) }
     }
 
@@ -29,14 +30,16 @@ impl Drop for ThreadPool {
         drop(self.sender.take());
         
         self.workers.iter_mut().for_each(|w| {
+            println!("shutting down `worker-#{}`", w.1);
+
             if let Some(thread) = w.0.take() {
-                thread.join().unwrap();
+                let _ = thread.join();
             }
         });
     }
 }
 
-struct Worker(Option<JoinHandle<()>>);
+struct Worker(Option<JoinHandle<()>>, usize);
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
@@ -44,13 +47,18 @@ impl Worker {
             .name(format!("worker-#{}", id))
             .spawn(move || {
                 loop {
-                    let lock = receiver.lock().unwrap();
-                    let job = lock.recv().unwrap();
-                    drop(lock);
-                    job();
+                    match receiver.lock().unwrap().recv() {
+                        Ok(job) => if let Err(e) = panic::catch_unwind(panic::AssertUnwindSafe(job)) {
+                            println!("{:?}", e);
+                        },
+                        Err(_) => {
+                            println!("thread '{}' shutting down", id);
+                            break
+                        },
+                    };
                 }
             }).unwrap();
 
-        Self(Some(thread))
+        Self(Some(thread), id)
     }
 }

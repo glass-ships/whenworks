@@ -1,4 +1,4 @@
-use crate::logger::{Level, logger};
+use super::*;
 use crate::log;
 use std::process::exit;
 use std::net::{SocketAddr, IpAddr, Ipv4Addr};
@@ -41,35 +41,35 @@ pub fn init_args() {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--help" | "-h" => {
-                log!(HELP_MESSAGE);
+                log!(INFO, "{HELP_MESSAGE}");
                 exit(0);
             },
             "--version" | "-v" => {
-                log!(env!("CARGO_PKG_VERSION"));
+                log!(FATAL, "{}", env!("CARGO_PKG_VERSION"));
                 exit(0);
             },
             "--addr" | "-a" => {
                 let Some(addr) = args.next() else {
-                    log!(Level::Fatal, "Missing address");
+                    log!(FATAL, "Missing address");
                     exit(0);
                 };
                 unsafe { 
                     ARGS.addr = addr.parse::<SocketAddr>().unwrap_or_else(|_| {
-                        log!(Level::Fatal, "Invalid address");
+                        log!(FATAL, "Invalid address");
                         exit(1);
                     }); 
                 }
             },
             "--db" | "-D" => {
                 let Some(db_file) = args.next() else {
-                    log!(Level::Fatal, "Missing database file");
+                    log!(FATAL, "Missing database file");
                     exit(1);
                 };
                 unsafe { ARGS.db_file = Box::leak(db_file.into_boxed_str()); }
             },
             "--index" | "-i" => {
                 let Some(index_file) = args.next() else {
-                    log!(Level::Fatal, "Missing index file");
+                    log!(FATAL, "Missing index file");
                     exit(1);
                 };
                 unsafe { ARGS.index_file = Box::leak(index_file.into_boxed_str()); }
@@ -77,12 +77,12 @@ pub fn init_args() {
             "--debug" | "-d" => { unsafe { ARGS.debug = true; } },
             "--quiet" | "-q" => { unsafe { ARGS.quiet = true; } },
             _ => {
-                log!(Level::Fatal, "Invalid argument");
+                log!(FATAL, "Invalid argument");
                 exit(1);
             },
         }
     }
 
-    log!(Level::Debug, format!("Args: {:?}", unsafe { &ARGS }));
+    log!(DEBUG, "Args: {:?}", unsafe { &ARGS });
 }
 
