@@ -23,7 +23,7 @@ export const request = async <Response>(
   /** request url */
   path = "",
   /**
-   * key/value object for url parameters. 
+   * key/value object for url parameters.
    * use primitive for single, array for multiple/duplicate.
    *    { ids: "1,2,3" } -> ?ids=1,2,3
    * or
@@ -54,8 +54,8 @@ export const request = async <Response>(
   const request = new Request(url, options);
 
   /** unique request id */
-    const id = JSON.stringify(request, ["url", "method", "headers"]);
-    console.log("id: " + id);
+  const id = JSON.stringify(request, ["url", "method", "headers"]);
+  console.log("id: " + id);
 
   /** first check if request is cached */
   let response = cache.get(path);
@@ -73,15 +73,42 @@ export const request = async <Response>(
     });
 
   /** if request not cached, make new request */
-  if (!response)
-    response = await fetch(url, options);
+  if (!response) response = await fetch(url, options);
 
   /** capture error for throwing later */
   let error = "";
 
   /** check response code */
   if (!response.ok) error = `Response not OK`;
-
+  switch (response.status) {
+    case 401:
+      error = `Unauthorized`;
+      break;
+    case 403:
+      error = `Forbidden`;
+      break;
+    case 404:
+      error = `Not Found`;
+      if (parse === "text") {
+        return "Event not found" as unknown as Response;
+      } else {
+        return { error: "Event not found" } as unknown as Response;
+      }
+    case 500:
+      error = `Internal Server Error`;
+      break;
+    case 502:
+      error = `Bad Gateway`;
+      break;
+    case 503:
+      error = `Service Unavailable`;
+      break;
+    case 504:
+      error = `Gateway Timeout`;
+      break;
+    default:
+      break;
+  }
   /** parse response */
   let parsed: Response | undefined;
   try {

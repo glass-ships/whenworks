@@ -1,0 +1,73 @@
+name: whenworks
+id: https://w3id.org/whenworks
+description: Data models for the WhenWorks API
+prefixes:
+  linkml: https://w3id.org/linkml/
+imports:
+  - linkml:types
+default_range: string
+
+classes:
+  Event:
+    slots:
+      - name
+      - event_description
+      - creation_date
+      - dates
+      - users
+  User:
+    slots:
+      - username
+      - comment
+      - avail_dates
+  Date:
+    slots:
+      - from
+      - to
+      - preferred
+
+slots:
+  name:
+    description: The name of the event
+    required: true
+  event_description:
+    description: A description of the event
+  creation_date:
+    description: The date the event was created
+    required: true
+    range: integer
+  dates:
+    description: The dates of the event
+    range: Date
+    multivalued: true
+    inlined_as_list: true
+  users:
+    description: The users of the event
+    range: User
+    multivalued: true
+    inlined: true
+    inlined_as_list: false
+  username:
+    description: The name of the user
+    required: true
+    identifier: true
+  comment:
+    description: A comment from the user
+  avail_dates:
+    description: The availability dates of the user
+    range: Date
+    multivalued: true
+    inlined_as_list: true
+  from:
+    description: The start date of the availability
+    required: true
+    range: integer
+  to:
+    description: The end date of the availability
+    required: true
+    range: integer
+  preferred:
+    description: Whether the user prefers this date
+    required: true
+    range: boolean
+    ifabsent: False

@@ -1,46 +1,39 @@
-import { useState } from "react";
-// import { request } from "@/utils/request";
-import { getEvent } from "@/utils/db_utils";
+// import { useState } from "react";
+import { getEvent } from "@/api/event";
 import Header from "@/sections/Header";
+import EventForm from "@/sections/EventForm";
 import "./App.css";
 
-
 function App() {
-  const [count, setCount] = useState(0);
+  // const [count, setCount] = useState(0);
 
-  // const r = requestSimple('http://localhost:8080/api/Wu0rwE') 
-  // const r = request('Wu0rwE');
-  // r.then((response) => {
-  //   console.log(response);
-  // });
-
-  const event = getEvent('Wu0rwE');
-  console.log(event);
+  // Test endpoints
+  // const event = getEvent('Wu0rwE'); // bad event
+  const event = getEvent("If9p3o"); // good event
+  console.log(`Event: ${event}`);
 
   return (
     <>
-      <div>
-        <Header />
-        <h2>Find a time that works for everyone</h2>
-      </div>
-      <div className="card">
-        <h3>Create a New Event</h3>
-        <div>
-          Form goes here
-        </div>
-        <p>
-          <button
+      <Header />
+      <h2>Find a time that works for everyone</h2>
+      <main>
+        <div className="card">
+          <h3>Create a New Event</h3>
+          <EventForm />
+          {/* <p>
+            <button
             onClick={() => {
               setCount(count + 1);
               console.log("count", count);
             }}
-          >
+            >
             Create event
-          </button>
-        </p>
-      </div>
+            </button>
+          </p> */}
+        </div>
+      </main>
     </>
   );
-} 
+}
 
 export default App;

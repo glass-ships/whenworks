@@ -1,6 +1,4 @@
-// import React from "react";
 import classes from "./Header.module.css";
-// import "@/App.css";
 import { ReactComponent as Logo } from "@/assets/gearclock.svg";
 
 const Header = () => (
