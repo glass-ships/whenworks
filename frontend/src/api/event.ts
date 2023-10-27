@@ -8,7 +8,7 @@ export const getEvent = async (eventID: string) => {
 };
 
 export const createEvent = async (event: Event) => {
-  const options = {
+  const options: RequestInit = {
     method: "POST",
     headers: {
       // "Access-Control-Allow-Origin": "*",
@@ -19,6 +19,7 @@ export const createEvent = async (event: Event) => {
       "Accept": "application/json",
     },
     body: JSON.stringify(event),
+    mode: "no-cors",
   };
 
   const response = await request("new", {}, options);

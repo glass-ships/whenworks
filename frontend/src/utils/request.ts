@@ -45,6 +45,7 @@ export const request = async <Response>(
 
   /** sort params for consistency */
   paramsObject.sort();
+  console.log("paramsObject: ", paramsObject.toString());
 
   /** assemble url to query */
   const url = api + path;
