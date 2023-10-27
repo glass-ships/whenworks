@@ -31,9 +31,6 @@ const ALPHANUMERIC: [char; 62] = [
 ];
 
 unsafe fn gen_hash() -> Hash {
-    // seed the rand
-    srand(time(null_mut()) as c_uint);
-
     let mut buf = ['\0'; 6];
     (0..6).for_each(|i| buf[i] = ALPHANUMERIC[(rand() % 62) as usize]);
     buf
@@ -124,6 +121,9 @@ pub unsafe fn load_db() {
 
     // decode bincode
     let db_de: EventList = bincode::deserialize(&buf).unwrap();
+
+    // seed the rand
+    unsafe{ srand(time(null_mut()) as c_uint); }
 
     EVENT_LIST = Some(Mutex::new(db_de));
 }
