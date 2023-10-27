@@ -1,7 +1,14 @@
+use crate::logger::{logger, DEBUG};
+use crate::log;
+
 #[macro_export]
 macro_rules! resp {
     ($stream:ident, $($resp:expr),*) => {
-        $stream.write_all(fmt!($($resp),*).as_bytes()).unwrap_or_else(|e| log!(ERROR, "{e}"))
+        $stream.write_all({
+            let responce = fmt!($($resp),*);
+            log!(DEBUG, "{}", responce);
+            responce
+        }.as_bytes()).unwrap_or_else(|e| log!(ERROR, "{e}"))
     };
 }
 
