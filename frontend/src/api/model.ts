@@ -24,7 +24,7 @@ export interface User {
     avail_dates?: Date[],
 };
 
-export interface Date {
+export interface DateType {
     /** The start date of the availability */
     from: number,
     /** The end date of the availability */

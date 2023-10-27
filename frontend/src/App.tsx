@@ -9,8 +9,7 @@ function App() {
 
   // Test endpoints
   // const event = getEvent('Wu0rwE'); // bad event
-  const event = getEvent("If9p3o"); // good event
-  console.log(`Event: ${event}`);
+  getEvent("XkMSUY"); // good event
 
   return (
     <>

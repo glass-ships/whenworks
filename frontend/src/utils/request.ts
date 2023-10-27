@@ -1,19 +1,20 @@
 import { groupLog } from "@/utils/debug";
+import { api } from "@/api/index";
 
-// Typescript function to make Requests to the backend
+// Typescript function to make GET requests to the backend
 // https://github.dev/blekhmanlab/compendium_website
-// export const requestSimple = async <Type>(url: string, type: "json" | "text" = "json") => {
-//   const options: RequestInit = { redirect: "follow" };
-//   const response = await fetch(url, options);
-//   if (!response.ok) throw Error("Response not OK");
-//   if (type === "text") return (await response.text()) as Type;
-//   else return (await response.json()) as Type;
-// };
+export const requestSimple = async <Type>(url: string, type: "json" | "text" = "json") => {
+  const options: RequestInit = { redirect: "follow" };
+  const response = await fetch(url, options);
+  if (!response.ok) throw Error("Response not OK");
+  if (type === "text") return (await response.text()) as Type;
+  else return (await response.json()) as Type;
+};
 
+// More complex Typescript function to make GET and POST requests to the backend
+// From https://github.com/monarch-initiative/monarch-app/
 type Param = string | number | boolean | undefined | null;
 export type Params = { [key: string]: Param | Param[] };
-
-const baseURL = (import.meta.env.VITE_API_URL as string) || "http://localhost:8080/api/";
 
 /** session response cache */
 const cache = new Map<string, Response>();
@@ -46,16 +47,15 @@ export const request = async <Response>(
   paramsObject.sort();
 
   /** assemble url to query */
-  const url = baseURL + path;
+  const url = api + path;
   //   const paramsString = "?" + paramsObject.toString();
-  //   const url = baseURL + path + "/" + paramsString;
+  //   const url = api + path + "/" + paramsString;
 
   /** make request object */
   const request = new Request(url, options);
 
   /** unique request id */
   const id = JSON.stringify(request, ["url", "method", "headers"]);
-  console.log("id: " + id);
 
   /** first check if request is cached */
   let response = cache.get(path);
@@ -73,42 +73,47 @@ export const request = async <Response>(
     });
 
   /** if request not cached, make new request */
-  if (!response) response = await fetch(url, options);
+  if (!response) {
+    response = await fetch(url, options);
+  }
 
   /** capture error for throwing later */
   let error = "";
 
   /** check response code */
-  if (!response.ok) error = `Response not OK`;
-  switch (response.status) {
-    case 401:
-      error = `Unauthorized`;
-      break;
-    case 403:
-      error = `Forbidden`;
-      break;
-    case 404:
-      error = `Not Found`;
-      if (parse === "text") {
-        return "Event not found" as unknown as Response;
-      } else {
-        return { error: "Event not found" } as unknown as Response;
-      }
-    case 500:
-      error = `Internal Server Error`;
-      break;
-    case 502:
-      error = `Bad Gateway`;
-      break;
-    case 503:
-      error = `Service Unavailable`;
-      break;
-    case 504:
-      error = `Gateway Timeout`;
-      break;
-    default:
-      break;
+  if (!response.ok) {
+    // error = `Response not OK`;
+    switch (response.status) {
+      case 401:
+        error = `Unauthorized`;
+        break;
+      case 403:
+        error = `Forbidden`;
+        break;
+      case 404:
+        error = `Not Found`;
+        if (parse === "text") {
+          return ("Event not found" as unknown) as Response;
+        } else {
+          return ({ error: "Event not found" } as unknown) as Response;
+        }
+      case 500:
+        error = `Internal Server Error`;
+        break;
+      case 502:
+        error = `Bad Gateway`;
+        break;
+      case 503:
+        error = `Service Unavailable`;
+        break;
+      case 504:
+        error = `Gateway Timeout`;
+        break;
+      default:
+        break;
+    }
   }
+
   /** parse response */
   let parsed: Response | undefined;
   try {
