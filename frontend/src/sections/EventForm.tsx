@@ -17,7 +17,7 @@ const EventForm = () => {
     let dt = new Date().valueOf();
     const data: Event = {
       name: name,
-      event_description: desc,
+      desc: desc,
       creation_date: dt,
     };
     console.log("Input data: ", data);
@@ -28,7 +28,7 @@ const EventForm = () => {
   return (
     <form className={classes.form} onSubmit={onSubmit}>
       <Textbox value={name} onChange={setName} placeholder="Event Name" />
-      <Textbox value={desc} onChange={setDesc} placeholder="Event Description" />
+      <Textbox type="textarea" value={desc} onChange={setDesc} placeholder="Event Description" />
       {/* <Textbox value={dates} onChange={setDates} placeholder="Event Dates" /> */}
       <button className={classes.button} type="submit" onSubmit={onSubmit}>
         Create event

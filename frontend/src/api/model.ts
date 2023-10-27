@@ -6,7 +6,7 @@ export interface Event {
     /** The name of the event */
     name: string,
     /** A description of the event */
-    event_description?: string,
+    desc?: string,
     /** The date the event was created */
     creation_date: number,
     /** The dates of the event */

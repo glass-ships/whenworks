@@ -92,12 +92,7 @@ export const request = async <Response>(
         error = `Forbidden`;
         break;
       case 404:
-        error = `Not Found`;
-        if (parse === "text") {
-          return ("Event not found" as unknown) as Response;
-        } else {
-          return ({ error: "Event not found" } as unknown) as Response;
-        }
+        return parse === "text" ? (("Event not found" as unknown) as Response) : (({ error: "Event not found" } as unknown) as Response);
       case 500:
         error = `Internal Server Error`;
         break;

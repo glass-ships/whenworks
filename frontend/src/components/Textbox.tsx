@@ -7,10 +7,10 @@ type Props = {
   onChange: (value: string) => void;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "onChange">;
 
-const Textbox = ({ value, onChange, ...props }: Props) => (
+const Textbox = ({ type, value, onChange, ...props }: Props) => (
   <div className={classes.wrapper}>
     <input
-      type="text"
+      type={type || "text"}
       className={classes.input}
       {...props}
       value={value}
