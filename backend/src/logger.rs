@@ -2,16 +2,22 @@ use crate::args_parser::ARGS;
 
 #[macro_export]
 macro_rules! log {
-    ($lvl:expr, $($fmt:tt)*) => {
-        logger($lvl, format!($($fmt)*))
+    (DEBUG, $($fmt:tt)*) => {
+        crate::logger::logger(crate::logger::Level::Debug, format!($($fmt)*))
+    };
+    (WARN, $($fmt:tt)*) => {
+        crate::logger::logger(crate::logger::Level::Warn, format!($($fmt)*))
+    };
+    (ERROR, $($fmt:tt)*) => {
+        crate::logger::logger(crate::logger::Level::Error, format!($($fmt)*))
+    };
+    (FATAL, $($fmt:tt)*) => {
+        crate::logger::fatal(format!($($fmt)*))
+    };
+    ($($fmt:tt)*) => {
+        crate::logger::logger(crate::logger::Level::Info, format!($($fmt)*))
     };
 }
-
-pub const DEBUG: Level = Level::Debug;
-pub const INFO: Level = Level::Info;
-pub const WARN: Level = Level::Warn;
-pub const ERROR: Level = Level::Error;
-pub const FATAL: Level = Level::Fatal;
 
 #[derive(PartialEq)]
 pub enum Level {
@@ -22,11 +28,13 @@ pub enum Level {
     Fatal, // red, bold
 }
 
-pub fn logger<T: std::fmt::Display>(lvl: Level, msg: T) {
-    unsafe {
-        if ARGS.quiet && lvl != Level::Fatal { return; }
-        if lvl == Level::Debug && !ARGS.debug { return; }
-    }
+pub fn fatal(msg: String) {
+    logger(Level::Fatal, msg);
+    exit(1)
+}
+
+pub fn logger(lvl: Level, msg: String) {
+    if lvl == Level::Debug && unsafe{!ARGS.debug} { return; }
 
     match lvl {
         Level::Info  => println!("{}", msg),

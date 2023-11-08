@@ -18,7 +18,7 @@ mod logger;
 mod args_parser;
 
 const HTTP: &str = "HTTP/1.1";
-const POLICY: &str = "Access-Control-Allow-Origin: *";
+const POLICY: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Origin: http://localhost:8080";
 
 fn main() {
     args_parser::init_args();
