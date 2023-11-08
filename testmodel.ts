@@ -10,24 +10,19 @@ export interface Event {
     /** The date the event was created */
     creation_date: number,
     /** The dates of the event */
-    dates?: Date[],
+    dates?: DateType[],
     /** The users of the event */
-    // users?: {[index: UserUsername]: User },
-    users?: Users,
+    users?: {[index: UserUsername]: User },
 };
 
 export interface User {
     /** The name of the user */
-    // username: string,
+    username: string,
     /** A comment from the user */
     comment?: string,
     /** The availability dates of the user */
-    avail_dates?: Date[],
+    avail_dates?: DateType[],
 };
-
-export type Users = {
-    [username: string]: User
-}
 
 export interface DateType {
     /** The start date of the availability */

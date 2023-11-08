@@ -76,6 +76,7 @@ export const request = async <Response>(
   /** if request not cached, make new request */
   if (!response) {
     response = await fetch(url, options);
+    console.log("response: ", response);
   }
 
   /** capture error for throwing later */

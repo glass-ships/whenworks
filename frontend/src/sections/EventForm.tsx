@@ -19,6 +19,8 @@ const EventForm = () => {
       name: name,
       desc: desc,
       creation_date: dt,
+      dates: [],
+      users: {},
     };
     console.log("Input data: ", data);
     const eventResponse = createEvent(data);

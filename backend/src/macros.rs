@@ -5,9 +5,9 @@ use crate::log;
 macro_rules! resp {
     ($stream:ident, $($resp:expr),*) => {
         $stream.write_all({
-            let responce = fmt!($($resp),*);
-            log!(DEBUG, "{}", responce);
-            responce
+            let response = fmt!($($resp),*);
+            log!(DEBUG, "{}", response);
+            response
         }.as_bytes()).unwrap_or_else(|e| log!(ERROR, "{e}"))
     };
 }

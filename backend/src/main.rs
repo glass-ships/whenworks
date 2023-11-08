@@ -170,15 +170,15 @@ fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
 
         let hashes = Event::add(event);
 
-        let Ok(responce) = serde_json::to_string(&Hashes {
+        let Ok(response) = serde_json::to_string(&Hashes {
             event_id: hash_to_str(hashes.0),
             edit_hash: hash_to_str(hashes.1),
         }) else {
-            resp!(stream, 500, "failed to serialize responce");
+            resp!(stream, 500, "failed to serialize response");
             return;
         };
 
-        resp!(stream, 200, Type::Json, responce);
+        resp!(stream, 200, Type::Json, response);
         return;
     }
 
