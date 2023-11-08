@@ -41,11 +41,11 @@ pub fn init_args() {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--help" | "-h" => {
-                log!(INFO, "{HELP_MESSAGE}");
+                log!("{HELP_MESSAGE}");
                 exit(0);
             },
             "--version" | "-v" => {
-                log!(FATAL, "{}", env!("CARGO_PKG_VERSION"));
+                log!("{}", env!("CARGO_PKG_VERSION"));
                 exit(0);
             },
             "--addr" | "-a" => {

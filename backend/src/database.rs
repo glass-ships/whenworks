@@ -91,7 +91,7 @@ pub unsafe fn load_db() {
             })
         },
         false => {
-            log!(INFO, "db file not found, creating...");
+            log!("db file not found, creating...");
             std::fs::File::create(ARGS.db_file).unwrap_or_else(|e| {
                 log!(ERROR, "{}", e);
                 exit(1);

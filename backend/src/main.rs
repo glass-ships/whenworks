@@ -8,7 +8,6 @@ use serde::{Serialize, Deserialize};
 use threads::ThreadPool;
 use database::{load_db, Event, EVENT_LIST, Hash, UserEntry, EventEntry};
 use macros::Type;
-use logger::{logger, FATAL, WARN, ERROR, DEBUG, INFO};
 use args_parser::ARGS;
 
 mod threads;
@@ -18,7 +17,7 @@ mod logger;
 mod args_parser;
 
 const HTTP: &str = "HTTP/1.1";
-const POLICY: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Origin: http://localhost:8080";
+const POLICY: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: *\r\nAccess-Control-Allow-Headers: *";
 
 fn main() {
     args_parser::init_args();

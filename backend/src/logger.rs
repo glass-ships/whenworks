@@ -30,7 +30,7 @@ pub enum Level {
 
 pub fn fatal(msg: String) {
     logger(Level::Fatal, msg);
-    exit(1)
+    std::process::exit(1)
 }
 
 pub fn logger(lvl: Level, msg: String) {

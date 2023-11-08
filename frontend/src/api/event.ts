@@ -14,12 +14,12 @@ export const createEvent = async (event: Event) => {
       "Access-Control-Allow-Origin": "*",
       // "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
       // "Access-Control-Request-Methods": "POST",
-      // "Access-Control-Allow-Headers": "Origin, Content-Type, X-Auth-Token, Authorization",
+      "Access-Control-Allow-Headers": "*",
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
     body: JSON.stringify(event),
-    // mode: "no-cors",
+    mode: "no-cors",
   };
 
   const response = await request("new", {}, options);

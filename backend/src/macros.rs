@@ -1,6 +1,3 @@
-use crate::logger::{logger, DEBUG};
-use crate::log;
-
 #[macro_export]
 macro_rules! resp {
     ($stream:ident, $($resp:expr),*) => {
@@ -35,7 +32,7 @@ macro_rules! fmt {
     };
 }
 
-fn code_to_str<'a>(code: u16) -> &'a str {
+pub fn code_to_str<'a>(code: u16) -> &'a str {
     match code {
         200 => "OK",
         400 => "BAD REQUEST",
