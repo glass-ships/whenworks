@@ -19,7 +19,7 @@ export const createEvent = async (event: Event) => {
       "Accept": "application/json",
     },
     body: JSON.stringify(event),
-    mode: "no-cors",
+    mode: "cors",
   };
 
   const response = await request("new", {}, options);
