@@ -21,7 +21,7 @@ help:
 	@echo "│                                                           │"
 	@echo "│     docs                Generate documentation            │"
 	@echo "│     model               Generate model files              │"
-	@echo "|     fixtures            Generate data fixtures            │" 
+	@echo "|     fixtures            Generate data fixtures            │"
 	@echo "│                                                           │"
 	@echo "│     install             Install backend and frontend      │"
 	@echo "│     install-backend     Install backend                   │"
@@ -116,7 +116,7 @@ dev-frontend:
 .PHONY: dev-backend
 dev-backend: 
 	cd backend && \
-		cargo run -- -d
+		RUST_BACKTRACE=1 cargo run --quiet
 
 
 ### Linting, Formatting, and Cleaning ###

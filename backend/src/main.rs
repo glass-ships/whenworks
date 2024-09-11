@@ -2,7 +2,7 @@
 #![forbid(clippy::complexity, clippy::suspicious, clippy::correctness, clippy::perf, clippy::pedantic, clippy::nursery)] 
 #![allow(clippy::style, clippy::restriction, clippy::match_bool, clippy::too_many_lines, clippy::single_match_else, clippy::ignored_unit_patterns, clippy::module_name_repetitions, clippy::needless_for_each, clippy::derive_partial_eq_without_eq, clippy::missing_const_for_fn, clippy::cognitive_complexity, clippy::option_if_let_else, clippy::option_map_unit_fn, clippy::cast_possible_truncation)]
 
-use axum::{routing::post, http::StatusCode};
+use axum::{routing::{post, get}, http::StatusCode};
 use axum::extract::{Json, Path, Query};
 
 use serde_json::{json, Value};
@@ -44,7 +44,7 @@ async fn main() {
         .route("/api/:id/user/:uname/edit", post(edit_user))
         .route("/api/:id/user/:uname/del",  post(del_user))
         .route("/api/:id/user/:uname/new",  post(add_user))
-        .route("/api/:id",                  post(get_event));
+        .route("/api/:id",                  get(get_event));
     
     let listener = tokio::net::TcpListener::bind(&addr).await
         .expect("Error binding listener");

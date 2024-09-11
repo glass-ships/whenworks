@@ -12,7 +12,7 @@ It is similar to [When2meet](https://www.when2meet.com/) and [WhenIsGood](https:
 - Modern, responsive UI (using [React](https://reactjs.org/) with TypeScript)
 - Easy to use and understand
 - Mobile friendly (using [Bootstrap](https://getbootstrap.com/))
-- A Fast and Multi-Threaded HTTP server written in [Rust](https://www.rust-lang.org/)
+- A Fast and Performant backend (using [Axum](https://crates.io/crates/axum))
 - Low disk usage (using [Bincode](https://crates.io/crates/bincode) for the database)
 
 
