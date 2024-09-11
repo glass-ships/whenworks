@@ -36,15 +36,18 @@ impl std::fmt::Debug for Hash {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
+    #[serde(skip)]
     pub creation_date: u64,
     pub name:  Box<str>,
     pub desc:  Option<Box<str>>,
     dates: Vec<DateRange>,
-    pub users: Mutex<HashMap<Box<str>, (Arc<str>, User)>>,
+    pub users: Mutex<HashMap<Box<str>, User>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct User {
+    #[serde(skip)]
+    pub pass_hash: Arc<str>,
     comment: Option<Box<str>>,
     dates: Vec<DateRange>,
 }
