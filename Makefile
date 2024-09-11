@@ -64,6 +64,7 @@ install: install-backend install-frontend
 install-backend:
 	cd backend && \
 		cargo build --release
+		# prob move the binary somewhere and then clean idk
 
 
 .PHONY: install-frontend
@@ -123,7 +124,8 @@ dev-backend:
 
 .PHONY: clean
 clean:
-	# remove build artifacts
+	mv backend/target/release/whenworks-backend $(ROOTDIR)/ &&
+		rm -rf backend/target/
 
 
 .PHONY: clobber
@@ -143,7 +145,8 @@ lint-frontend:
 
 .PHONY: lint-backend
 lint-backend: 
-	# run backend linters
+	cd backend && \
+		cargo clippy
 
 
 .PHONY: format
@@ -152,7 +155,7 @@ format: format-frontend format-backend
 
 .PHONY: format-backend
 format-backend: 
-	# run backend formatters
+	echo "don't"
 
 
 .PHONY: format-frontend

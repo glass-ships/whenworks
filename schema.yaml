@@ -12,15 +12,14 @@ classes:
     slots:
       - name
       - desc
-      - creation_date
       - dates
       - users
   User:
     slots:
-      - username
+      - name
       - comment
-      - avail_dates
-  DateType:
+      - dates
+  DateRange:
     slots:
       - from
       - to
@@ -32,13 +31,9 @@ slots:
     required: true
   desc:
     description: A description of the event
-  creation_date:
-    description: The date the event was created
-    required: true
-    range: integer
   dates:
     description: The dates of the event
-    range: DateType
+    range: DateRange
     multivalued: true
     inlined_as_list: true
   users:
@@ -47,15 +42,15 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: false
-  username:
+  name:
     description: The name of the user
     required: true
     identifier: true
   comment:
     description: A comment from the user
-  avail_dates:
+  dates:
     description: The availability dates of the user
-    range: DateType
+    range: DateRange
     multivalued: true
     inlined_as_list: true
   from:
