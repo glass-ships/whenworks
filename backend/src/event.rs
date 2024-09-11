@@ -41,13 +41,14 @@ pub struct Event {
     pub name:  Box<str>,
     pub desc:  Option<Box<str>>,
     dates: Vec<DateRange>,
-    pub users: Mutex<HashMap<Box<str>, User>>,
+    pub users: Mutex<Vec<User>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct User {
     #[serde(skip)]
     pub pass_hash: Arc<str>,
+    pub name: Box<str>,
     comment: Option<Box<str>>,
     dates: Vec<DateRange>,
 }

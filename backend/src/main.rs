@@ -44,13 +44,13 @@ async fn main() {
     println!("{:#?}", *DB.read());
 
     let router = axum::Router::new()
-        .route("/api/new",                  post(new_event))
-        .route("/api/:id/edit",             post(edit_event))
-        .route("/api/:id/del",              post(del_event))
-        .route("/api/:id/user/:uname/edit", post(edit_user))
-        .route("/api/:id/user/:uname/del",  post(del_user))
-        .route("/api/:id/user/:uname/new",  post(add_user))
-        .route("/api/:id",                  get(get_event));
+        .route("/api/new",           post(new_event))
+        .route("/api/:id/edit",      post(edit_event))
+        .route("/api/:id/del",       post(del_event))
+        .route("/api/:id/user/edit", post(edit_user))
+        .route("/api/:id/user/del",  post(del_user))
+        .route("/api/:id/user/new",  post(add_user))
+        .route("/api/:id",           get(get_event));
     
     let listener = tokio::net::TcpListener::bind(&addr).await
         .expect("Error binding listener");
@@ -127,13 +127,13 @@ async fn del_event(Path(id): Path<Box<str>>, Json(key): Json<Box<str>>) -> Respo
 }
 
 
-async fn add_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json((pass, mut user)): Json<(Box<[u8]>, User)>) -> Response<&'static str> {
+async fn add_user(Path(id): Path<Box<str>>, Json((pass, mut user)): Json<(Box<[u8]>, User)>) -> Response<&'static str> {
     let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
 
     DB.read().get(&id)
         .ok_or((StatusCode::NOT_FOUND, "Event not found"))
         .and_then(|(_, e)| e.users.lock().unwrap()
-            .contains_key(&uname).not().then_some(())
+            .iter().any(|u| u.name == user.name).not().then_some(())
             .ok_or((StatusCode::CONFLICT, "User already exists"))
         )?;
 
@@ -142,18 +142,18 @@ async fn add_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json((pass, mut
         .map(|p| Arc::from(p))?;
 
     DB.write().get(&id).unwrap().1.users
-        .lock().unwrap()
-        .insert(uname, user);
+        .lock().unwrap().push(user);
 
     Ok((StatusCode::CREATED, "OK"))
 }
 
-async fn edit_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json((pass, mut user)): Json<(Box<[u8]>, User)>) -> Response<&'static str> {
+async fn edit_user(Path(id): Path<Box<str>>, Json((pass, mut user)): Json<(Box<[u8]>, User)>) -> Response<&'static str> {
     let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
 
     DB.read().get(&id)
         .ok_or((StatusCode::NOT_FOUND, "Event Not found"))
-        .and_then(|(_, e)| e.users.lock().unwrap().get(&uname)
+        .and_then(|(_, e)| e.users.lock().unwrap()
+            .iter().find(|u| u.name == user.name)
             .map(|u| user.pass_hash = u.pass_hash.clone())
             .ok_or((StatusCode::NOT_FOUND, "User not found")))?;
 
@@ -162,19 +162,24 @@ async fn edit_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json((pass, mu
         |b| b.then_some(()).ok_or((StatusCode::FORBIDDEN, "Invalid key"))
     )?;
 
-    *DB.write().get(&id).unwrap().1.users
-        .lock().unwrap()
-        .get_mut(&uname).unwrap() = user;
+    let _ = std::mem::replace(
+        DB.write().get(&id).unwrap().1.users
+            .lock().unwrap()
+            .iter_mut().find(|u| u.name == user.name)
+            .unwrap(), 
+        user
+    );
 
     Ok((StatusCode::OK, "OK"))
 }
 
-async fn del_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json(pass): Json<Box<[u8]>>) -> Response<&'static str> {
+async fn del_user(Path(id): Path<Box<str>>, Json((pass, uname)): Json<(Box<[u8]>, Box<str>)>) -> Response<&'static str> {
     let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
 
     DB.read().get(&id)
         .ok_or((StatusCode::NOT_FOUND, "Event Not found"))
-        .and_then(|(_, e)| e.users.lock().unwrap().get(&uname)
+        .and_then(|(_, e)| e.users.lock().unwrap()
+            .iter().find(|u| u.name == uname)
             .map(|u| u.pass_hash.clone())
             .ok_or((StatusCode::NOT_FOUND, "User not found")))
         .and_then(|k| bcrypt::verify(pass, &k).map_or(
@@ -183,8 +188,7 @@ async fn del_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json(pass): Jso
         ))?;
 
     DB.write().get(&id).unwrap().1.users
-        .lock().unwrap()
-        .remove(&uname);
+        .lock().unwrap().retain(|u| u.name != uname);
 
     Ok((StatusCode::OK, "OK"))
 }

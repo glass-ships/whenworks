@@ -19,7 +19,7 @@ struct Event {
     name:  string,
     desc:  ?string,
     dates: [DateRange],
-    users: Map<string, User>
+    users: [User],
 }
 
 struct DateRange {
@@ -88,7 +88,7 @@ struct User {
 ---
 
 **Request:**
-> `POST /api/{Id}/user/{string}` - Add a user to an event.
+> `POST /api/{Id}/user/new` - Add a user to an event.
 > body: `[pass: [u8], User]`
 
 **Errors:**
@@ -100,7 +100,7 @@ struct User {
 ---
 
 **Request:**
-> `POST /api/{Id}/user/{string}/edit` - Edit a user in an event.
+> `POST /api/{Id}/user/edit` - Edit a user in an event.
 > body: `[pass: [u8], User]`
 
 **Errors:**
@@ -113,8 +113,8 @@ struct User {
 ---
 
 **Request:**
-> `POST /api/{Id}/user/{string}/del` - Delete a user from an event.
-> body: `pass: [u8]`
+> `POST /api/{Id}/user/del` - Delete a user from an event.
+> body: `[pass: [u8], name: string]`
 
 **Errors:**
 > 400: Id is invalid base64.
