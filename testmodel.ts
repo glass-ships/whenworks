@@ -1,27 +1,24 @@
-export type UserUsername = string;
-
-
+// 16 bytes, base64url encoded, no padding char
+export type Id = string;
 
 export interface Event {
     /** The name of the event */
     name: string,
     /** A description of the event */
     desc?: string,
-    /** The date the event was created */
-    creation_date: number,
     /** The dates of the event */
-    dates?: DateType[],
+    dates?: DateRange[],
     /** The users of the event */
-    users?: {[index: UserUsername]: User },
+    users?: User[],
 };
 
 export interface User {
     /** The name of the user */
-    username: string,
+    name: string,
     /** A comment from the user */
     comment?: string,
     /** The availability dates of the user */
-    avail_dates?: DateType[],
+    dates?: DateRange[],
 };
 
 export interface DateType {
