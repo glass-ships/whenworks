@@ -1,337 +1,176 @@
-use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write};
-use std::str;
-use std::process::exit;
+#![allow(forbidden_lint_groups)]
+#![forbid(clippy::complexity, clippy::suspicious, clippy::correctness, clippy::perf, clippy::pedantic, clippy::nursery)] 
+#![allow(clippy::style, clippy::restriction, clippy::match_bool, clippy::too_many_lines, clippy::single_match_else, clippy::ignored_unit_patterns, clippy::module_name_repetitions, clippy::needless_for_each, clippy::derive_partial_eq_without_eq, clippy::missing_const_for_fn, clippy::cognitive_complexity, clippy::option_if_let_else, clippy::option_map_unit_fn, clippy::cast_possible_truncation)]
 
-use serde::{Serialize, Deserialize};
+use axum::{routing::post, http::StatusCode};
+use axum::extract::{Json, Path, Query};
 
-use threads::ThreadPool;
-use database::{load_db, Event, EVENT_LIST, Hash, UserEntry, EventEntry};
-use macros::Type;
-use args_parser::ARGS;
+use serde_json::{json, Value};
 
-mod threads;
-mod macros;
-mod database;
-mod logger;
-mod args_parser;
+use std::sync::{LazyLock, Arc};
+use std::ops::Not;
 
-const HTTP: &str = "HTTP/1.1";
-const POLICY: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: *\r\nAccess-Control-Allow-Headers: *";
+mod event;
+use event::{Event, DB, Hash, User};
 
-fn main() {
-    args_parser::init_args();
+static DB: LazyLock<DB> = LazyLock::new(DB::new);
 
-    let Ok(listener) = TcpListener::bind(unsafe{ARGS.addr}) else {
-        log!(FATAL, "Failed to bind to address");
-        exit(1);
-    };
+#[tokio::main]
+async fn main() {
+    let addr = std::env::args().skip(1).next()
+        .unwrap_or_else(|| String::from("127.0.0.1:8080"));
 
-    let pool = ThreadPool::new(4);
+    // bookkeeping
+    tokio::spawn(async {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap().as_secs();
 
-    unsafe{ load_db(); }
+        // 30 days
+        DB.write().retain(|_, (_, e)| e.creation_date + 30 * 24 * 60 * 60 > now);
 
-    for stream in listener.incoming() {
-        let Ok(stream) = stream else {
-            log!(ERROR, "Failed to accept connection");
-            continue;
-        };
-        pool.execute(|| handle_conn(stream));
-    }
-}
+        // 30 min (no from_mins :<)
+        tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
+    });
 
 
-fn handle_conn(mut stream: TcpStream) {
-    let mut buf = [0; 1024];
-    let bytes_ = match stream.read(&mut buf) {
-        Ok(b) if b == 0 => return,
-        Ok(b) => b,
-        Err(e) => {
-            log!(ERROR, "{e}");
-            return;
-        },
-    };
+    #[cfg(debug_assertions)]
+    println!("{:#?}", *DB.read());
 
-    let Ok(req) = str::from_utf8(&buf[..bytes_]) else {
-        resp!(stream, 400, "invalid utf8");
-        return;
-    };
-    let (head, body) = req.split_once("\r\n\r\n").unwrap_or((req, ""));
-
-    log!(DEBUG, "\nHead: \n{head}\n\nBody: \n{body}");
-
-    let type_ = head.lines().next().unwrap().split_whitespace().collect::<Vec<&str>>();
-    // example: GET / HTTP/1.1_
-    // [0] = GET
-    // [1] = /
-    // [2] = HTTP/1.1
-
-    match type_[0] {
-        "GET" => handle_get(type_[1], &mut stream),
-        "POST" => handle_post(type_[1], body, &mut stream),
-        _ => {
-            log!(WARN, "Recieved unhandled request type: `{}`", type_[0]);
-            resp!(stream, 400, "Unhandled Request Type");
-        },
-    }
-
-    stream.flush().unwrap();
-}
-
-fn handle_get(arg: &str, stream: &mut TcpStream) {
-    // handle favicon
-    if arg == "/favicon.ico" { 
-        let Ok(mut icon) = std::fs::File::open("favicon.ico") else {
-            resp!(stream, 500, "failed to read favicon");
-            log!(ERROR, "favicon.ico not found");
-            return;
-        };
-        let mut buf = Vec::new();
-        icon.read_to_end(&mut buf).unwrap();
-
-        let resp = format!("{HTTP} 200 OK\r\nContent-Type: image/x-icon\r\n{POLICY}\r\nContent-Length: {}\r\n\r\n", buf.len());
-        let resp = &[resp.as_bytes(), &buf].concat();
-        stream.write_all(resp).unwrap_or_else(|e| log!(ERROR, "{e}"))
-    }
+    let router = axum::Router::new()
+        .route("/api/new",                  post(new_event))
+        .route("/api/:id/edit",             post(edit_event))
+        .route("/api/:id/del",              post(del_event))
+        .route("/api/:id/user/:uname/edit", post(edit_user))
+        .route("/api/:id/user/:uname/del",  post(del_user))
+        .route("/api/:id/user/:uname/new",  post(add_user))
+        .route("/api/:id",                  post(get_event));
     
-    let Some(arg) = arg.strip_prefix("/api/") else {
-        // handle root
-        let Ok(file) = std::fs::read_to_string(unsafe{ARGS.index_file}) else {
-            log!(ERROR, "index file not found");
-            resp!(stream, 500, "failed to read root file");
-            return;
-        };
-        resp!(stream, 200, Type::Html, file);
-        return;
-    };
-    
-    // parse arg into event id
-    if arg.len() != 6 {
-        resp!(stream, 400, format!("invalid event id length. expected 6, got {}", arg.len()));
-        return;
-    }
-
-    let db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
-    let Some(ref event_id) = str_to_hash(arg) else {
-        resp!(stream, 400, "event id is not a valid hash");
-        return;
-    };
-    let Some(event) = db.get(event_id) else {
-        resp!(stream, 404, "event does not exist");
-        return;
-    };
-
-    let Ok(json_event) = serde_json::to_string(event) else {
-        resp!(stream, 500, "failed to serialize event");
-        return;
-    };
-
-    dbg!(&json_event);
-    
-    resp!(stream, 200, Type::Json, json_event);
+    let listener = tokio::net::TcpListener::bind(&addr).await
+        .expect("Error binding listener");
+    axum::serve(listener, router).await.unwrap();
 }
 
-#[derive(Serialize)]
-struct Hashes {
-    event_id: String,
-    edit_hash: String,
+type Response<T> = Result<(StatusCode, T), (StatusCode, &'static str)>;
+
+async fn get_event(Path(id): Path<String>) -> Response<Json<Arc<Event>>> {
+    let hash = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
+
+    DB.read().get(&hash)
+        .ok_or((StatusCode::NOT_FOUND, "Event not found"))
+        .map(|(_, e)| (StatusCode::OK, Json(Arc::clone(e))))
 }
 
-#[derive(Deserialize)]
-struct Boiled {
-    pass: [char; 8],
-    name: String,
-}
+async fn new_event(Json(event): Json<Event>) -> Response<Json<Value>> {
+    (event.name.len() > 32).not().then_some(())
+        .ok_or((StatusCode::BAD_REQUEST, "Name too long (max 32 chars)"))?;
 
-fn handle_post(arg: &str, body: &str, stream: &mut TcpStream) {
-    let Some(arg) = arg.strip_prefix("/api/") else {
-        resp!(stream, 400, "no op");
-        return;
+    event.desc.as_ref().filter(|d| d.len() <= 256)
+        .ok_or((StatusCode::BAD_REQUEST, "Description too long (max 256 chars)"))?;
+
+    let id = {
+        let db = DB.read();
+        loop {
+            let id = Hash::new();
+            if !db.contains_key(&id) { break id; }
+        }
     };
 
-    //
-    // create a new event
-    if arg == "new" {
-        if body.is_empty() {
-            resp!(stream, 422, "missing body");
-            return;
-        }
+    let key = Hash::new();
+    DB.write().insert(id, (key, Arc::new(event)));
 
-        let Ok(event) = serde_json::from_str::<Event>(body) else {
-            resp!(stream, 422, "invalid json in request body");
-            return;
-        };
-
-        if event.name.len() > 32 {
-            resp!(stream, 400, format!("event name too long. max 32, current {}", event.name.len()));
-            return;
-        }
-
-        let hashes = Event::add(event);
-
-        let Ok(response) = serde_json::to_string(&Hashes {
-            event_id: hash_to_str(hashes.0),
-            edit_hash: hash_to_str(hashes.1),
-        }) else {
-            resp!(stream, 500, "failed to serialize response");
-            return;
-        };
-
-        resp!(stream, 200, Type::Json, response);
-        return;
-    }
-
-    if arg.ends_with("/usr") && !arg.starts_with("//usr"){
-        let arg_ = match arg.ends_with("?e") {
-            true => &arg[1..arg.len()-2],
-            false => &arg[1..],
-        };
-
-        let Some((event_id, _)) = arg_.split_once('/') else {
-            resp!(stream, 400, "missing event id");
-            return;
-        };
-
-        let Some(event_id) = str_to_hash(event_id) else {
-            resp!(stream, 400, "event id is not a valid hash");
-            return;
-        };
-
-        if body.is_empty() {
-            resp!(stream, 422, "missing body");
-            return;
-        }
-
-        if arg.ends_with("?d") {
-            let Ok(user) = serde_json::from_str::<Boiled>(body) else {
-                resp!(stream, 422, "invalid json in request body");
-                return;
-            };
-
-            if let Err((c, r)) = Event::delete_user_en(event_id, &user.name, user.pass) {
-                resp!(stream, c, r);
-                return;
-            } return;
-        }
-
-        let Ok(user) = serde_json::from_str::<UserEntry>(body) else {
-            resp!(stream, 422, "invalid json in request body");
-            return;
-        };
-
-        if user.name.len() > 32 {
-            resp!(stream, 400, format!("user name too long. max 32, current {}", user.name.len()));
-            return;
-        }
-
-        if arg.ends_with("?e") {
-            if let Err((c, r)) =  Event::edit_user(event_id, user) {
-                resp!(stream, c, r);
-                return;
-            }
-        }
-
-        else if let Err((c, r)) = Event::add_user(event_id, user) {
-            resp!(stream, c, r);
-            return;
-        }
-
-        resp!(stream, 200);
-        return;
-    }
-
-    //
-    // edit an event
-    let Some((event_id, edit_hash)) = arg[1..].split_once('?') else {
-        resp!(stream, 400, "missing edit hash");
-        return;
-    };
-
-    let Some(event_id) = str_to_hash(event_id) else {
-        resp!(stream, 400, "event id is not a valid hash");
-        return;
-    };
-
-    let Some(edit_hash) = str_to_hash(edit_hash) else {
-        resp!(stream, 400, "edit hash is not a valid hash");
-        return;
-    };
-
-    if !validate_key(event_id, edit_hash, stream) { return; }
-
-    if body.is_empty() {
-        let db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
-        match db.get(&event_id) {
-            Some(e) => {
-                let Ok(json_event) = serde_json::to_string(e) else {
-                    resp!(stream, 500, "failed to serialize event");
-                    return;
-                };
-                resp!(stream, 200, Type::Json, json_event);
-                return;
-            },
-            None => {
-                resp!(stream, 404, "event does not exist");
-                return;
-            }
-        };
-    }
-
-    let Ok(new_event) = serde_json::from_str::<EventEntry>(body) else {
-        resp!(stream, 422, "invalid json in request body");
-        return;
-    };
-    
-    if new_event.name.len() > 32  {
-        resp!(stream, 400, format!("event name too long. max 32, current {}", new_event.name.len()));   
-        return;
-    }
-
-    if new_event.desc.as_ref().map(|d| d.len() > 256).unwrap_or(false) {
-        resp!(stream, 400, format!("event description too long. max 256, current {}", new_event.desc.as_ref().unwrap().len()));
-        return;
-    }
-
-    if let Some(ref del_usr) = new_event.deleted_users {
-        for user in del_usr {
-            if let Err((c, r)) = Event::delete_user(event_id, user) {
-                resp!(stream, c, r);
-                return;
-            }
-        }
-    }
-
-    Event::edit(event_id, edit_hash, new_event);
-
-    resp!(stream, 200);
+    Ok((StatusCode::CREATED, Json(json!({
+        "uid": id.to_string(),
+        "key": key.to_string(),
+    }))))
 }
 
-fn validate_key(event_id: Hash, edit_hash: Hash, stream: &mut TcpStream) -> bool {
-    let db = unsafe { EVENT_LIST.as_ref().unwrap().lock().unwrap() };
+async fn edit_event(Path(id): Path<Box<str>>, Query(key): Query<Box<str>>, Json(mut event): Json<Event>) -> Response<&'static str> {
+    let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
+    let key = Hash::from(&key).ok_or((StatusCode::BAD_REQUEST, "Invalid key"))?;
 
-    match db.get(&event_id) {
-        Some(e) if e.edit_hash != edit_hash => {
-            resp!(stream, 403, "invalid edit hash");
-            false
-        },
-        None => {
-            resp!(stream, 404, "event does not exist");
-            false
-        },
-        _ => true,
-    }
+    DB.read().get(&id).ok_or((StatusCode::NOT_FOUND, "Event not found"))
+        .and_then(|(k, e)| key.eq(k).then_some(())
+            .ok_or((StatusCode::FORBIDDEN, "Invalid key"))
+            .map(|_| event.creation_date = e.creation_date)
+        )?;
+
+    DB.write().get_mut(&id).unwrap().1 = Arc::new(event);
+
+    Ok((StatusCode::OK, "OK"))
 }
 
-fn str_to_hash(s: &str) -> Option<Hash> {
-    if s.len() != 6 { return None; }
+async fn del_event(Path(id): Path<Box<str>>, Query(key): Query<Box<str>>) -> Response<&'static str> {
+    let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
+    let key = Hash::from(&key).ok_or((StatusCode::BAD_REQUEST, "Invalid key"))?;
 
-    let mut hash: Hash = ['\0'; 6];
-    let mut s = s.chars();
-    (0..6).for_each(|i| hash[i] = s.next().unwrap());
-    Some(hash)
+    DB.read().get(&id).ok_or((StatusCode::NOT_FOUND, "Event not found"))
+        .and_then(|(k, _)| key.eq(k).then_some(())
+            .ok_or((StatusCode::FORBIDDEN, "Invalid key")))?;
+
+    DB.write().remove(&id);
+
+    Ok((StatusCode::OK, "OK"))
 }
 
-fn hash_to_str(hash: Hash) -> String {
-    hash.iter().collect::<String>()
+
+async fn add_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json((pass, user)): Json<(Box<[u8]>, User)>) -> Response<&'static str> {
+    let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
+
+    DB.read().get(&id)
+        .ok_or((StatusCode::NOT_FOUND, "Event not found"))
+        .and_then(|(_, e)| e.users.lock().unwrap()
+            .contains_key(&uname).not().then_some(())
+            .ok_or((StatusCode::NOT_FOUND, "User already exists"))
+        )?;
+
+    let pass = bcrypt::hash(pass, bcrypt::DEFAULT_COST)
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Error hashing password"))
+        .map(|p| Arc::from(p))?;
+
+    DB.write().get(&id).unwrap().1.users
+        .lock().unwrap()
+        .insert(uname, (pass, user));
+
+    Ok((StatusCode::CREATED, "OK"))
 }
 
+async fn del_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json(pass): Json<Box<[u8]>>) -> Response<&'static str> {
+    let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
+
+    DB.read().get(&id)
+        .ok_or((StatusCode::NOT_FOUND, "Event Not found"))
+        .and_then(|(_, e)| e.users.lock().unwrap().get(&uname)
+            .map(|(p, _)| Arc::clone(p))
+            .ok_or((StatusCode::NOT_FOUND, "User not found")))
+        .and_then(|k| bcrypt::verify(pass, &k).map_or(
+            Err((StatusCode::INTERNAL_SERVER_ERROR, "Error hashing key")),
+            |b| b.then_some(()).ok_or((StatusCode::FORBIDDEN, "Invalid key"))
+        ))?;
+
+    DB.write().get(&id).unwrap().1.users
+        .lock().unwrap()
+        .remove(&uname);
+
+    Ok((StatusCode::OK, "OK"))
+}
+
+async fn edit_user(Path((id, uname)): Path<(Box<str>, Box<str>)>, Json((pass, user)): Json<(Box<[u8]>, User)>) -> Response<&'static str> {
+    let id = Hash::from(&id).ok_or((StatusCode::BAD_REQUEST, "Invalid id"))?;
+
+    DB.read().get(&id)
+        .ok_or((StatusCode::NOT_FOUND, "Event Not found"))
+        .and_then(|(_, e)| e.users.lock().unwrap().get(&uname)
+            .map(|(p, _)| Arc::clone(p))
+            .ok_or((StatusCode::NOT_FOUND, "User not found")))
+        .and_then(|k| bcrypt::verify(pass, &k).map_or(
+            Err((StatusCode::INTERNAL_SERVER_ERROR, "Error hashing key")),
+            |b| b.then_some(()).ok_or((StatusCode::FORBIDDEN, "Invalid key"))
+        ))?;
+
+    DB.write().get(&id).unwrap().1.users
+        .lock().unwrap()
+        .get_mut(&uname).unwrap().1 = user;
+
+    Ok((StatusCode::OK, "OK"))
+}

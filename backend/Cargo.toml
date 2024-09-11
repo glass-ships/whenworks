@@ -1,27 +1,29 @@
 [package]
-name = "schedule_thing"
+name = "backend2"
 version = "0.1.0"
 edition = "2021"
+authors = ["slbsh"]
+license = "0BSD"
 
 [dependencies]
-# encodng/decoding
-base64 = "0.21.4"
-bincode = "1.3.3"
-flate2 = { version = "1.0.27", features = ["zlib"], default-features = false }
+axum = { version = "0.7", default-features = false, features = ["tokio", "query", "json", "http1"] }
+tokio = { version = "1.40", default-features = false, features = ["rt-multi-thread", "net", "sync"] }
 
-# serializing/deserializing
-serde = { version = "^1.0", features = ["derive", "rc"] }
-serde_json = "1.0.105"
+rand = "0.8"
+base64 = "0.22"
+bcrypt = "0.15"
 
-# rand nums
-libc = "0.2"
+serde = { version = "^1.0", default-features = false, features = ["rc", "std", "derive"] }
+serde_json = "1.0"
+bincode = "1.3"
 
-[profile.release.packages."*"]
+[profile.release.package."*"]
 opt-level = 3
+lto = true
+debug = false
 
 [profile.release]
 lto = true
-opt-level = 3 
-codegen-units = 1
+opt-level = 3
 debug = false
-
+codegen-units = 1
