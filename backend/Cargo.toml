@@ -7,13 +7,12 @@ license = "0BSD"
 
 [dependencies]
 axum = { version = "0.7", default-features = false, features = ["tokio", "json", "http1"] }
-tokio = { version = "1.40", default-features = false, features = ["rt-multi-thread", "net", "sync"] }
+tokio = { version = "1.41", default-features = false, features = ["rt-multi-thread"] }
 
 rand = "0.8"
-base64 = "0.22"
-bcrypt = "0.15"
+bcrypt = { version = "0.16", default-features = false, features = ["std"] }
 
-serde = { version = "^1.0", default-features = false, features = ["rc", "std", "derive"] }
+serde = { version = "1.0", default-features = false, features = ["rc", "derive"] }
 serde_json = "1.0"
 bincode = "1.3"
 
