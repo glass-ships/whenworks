@@ -44,6 +44,7 @@ async fn main() {
     println!("{:#?}", *DB.read());
 
     let router = axum::Router::new()
+        .route("/api",               get(|| async { "this is the whenworks api/db" }))
         .route("/api/new",           post(new_event))
         .route("/api/:id/edit",      post(edit_event))
         .route("/api/:id/del",       post(del_event))
