@@ -6,6 +6,11 @@
   This would mean that the old event links would now point to the new event.
   Dont think this is something that needs to be fixed tho as it's exceedingly unlikely (1 in 2^128).
 
+## env vars
+- `MAX_EVENT_AGE`: u64 - max age of an event in seconds (default: 30 days)
+- `BOOKKEEPING_INTERVAL`: u64 - interval in seconds between bookkeeping runs (default: 30min)
+- `DB_PATH`: string - path to the db file (default: `./db.bin`)
+
 ## Definitions
 (this is a simplified pseudocode interface, the actual implementation will be more complex)
 
