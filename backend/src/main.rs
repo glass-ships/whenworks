@@ -56,7 +56,9 @@ async fn main() {
 		.route("/api/:id/user/edit", post(edit_user))
 		.route("/api/:id/user/del",  post(del_user))
 		.route("/api/:id/user/new",  post(add_user))
-		.route("/api/:id",           get(get_event));
+		.route("/api/:id",           get(get_event))
+		// TODO: maybe set back to CorsLayer::permissive() ?
+		.layer(tower_http::cors::CorsLayer::very_permissive()); 
 
 	let listener = tokio::net::TcpListener::bind(&addr).await
 		.expect("Error binding listener");
