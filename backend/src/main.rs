@@ -82,7 +82,7 @@ async fn new_event(Json(event): Json<Event>) -> Response<Json<Value>> {
 	if event.name.is_empty() 
 		{ Err((StatusCode::BAD_REQUEST, "Name cannot be empty"))?; }
 
-	if event.desc.as_ref().filter(|d| d.len() <= 256).is_some() 
+	if event.desc.as_ref().filter(|d| d.len() > 256).is_some() 
 		{ Err((StatusCode::BAD_REQUEST, "Description too long (max 256 chars)"))?; }
 
 	let now = std::time::SystemTime::now()
