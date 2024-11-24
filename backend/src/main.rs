@@ -33,7 +33,10 @@ async fn bookkeeping() {
 			.duration_since(std::time::UNIX_EPOCH)
 			.unwrap().as_secs();
 
-		DB.write().retain(|_, (_, e)| e.creation_date + max_age > now);
+		#[cfg(debug_assertions)]
+		println!("Bookkeeping: {:#?}", DB.read().iter().filter(|(_, (_, e))| e.creation_date - max_age > now).collect::<Vec<_>>());
+
+		DB.write().retain(|_, (_, e)| e.creation_date - max_age > now);
 		tokio::time::sleep(interval).await;
 	}
 }
