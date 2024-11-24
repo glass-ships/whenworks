@@ -5,34 +5,8 @@ use std::fs::File;
 use std::io::{Write, Read};
 
 use serde::{Deserialize, Serialize};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 
-const UID_LEN: usize = 16;
-
-#[derive(Eq, Hash, PartialEq, Default, Clone, Copy, Deserialize, Serialize)]
-pub struct Hash([u8; UID_LEN]);
-
-impl Hash {
-    pub fn new() -> Self {
-        Self(rand::random::<[u8; UID_LEN]>())
-    }
-
-    pub fn to_string(self) -> String {
-        URL_SAFE_NO_PAD.encode(&self.0)
-    }
-
-    pub fn from(s: &str) -> Option<Self> {
-        URL_SAFE_NO_PAD.decode(s).ok()
-            .and_then(|v| v.try_into().ok())
-            .map(Self)
-    }
-}
-
-impl std::fmt::Debug for Hash {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Hash({})", self.to_string())
-    }
-}
+use crate::hash::Hash;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
