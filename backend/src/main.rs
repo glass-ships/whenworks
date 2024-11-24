@@ -17,31 +17,33 @@ mod hash;
 use hash::Hash;
 
 static DB: LazyLock<DB> = LazyLock::new(DB::new);
-static MAX_EVENT_AGE: LazyLock<u64> = LazyLock::new(||
-	std::env::var("MAX_EVENT_AGE")
+
+async fn bookkeeping() {
+	let max_age = std::env::var("MAX_EVENT_AGE")
 		.ok().and_then(|s| s.parse().ok())
-		.unwrap_or(30 * 24 * 60 * 60) // 30 days
-);
-static BOOKKEEPING_INTERVAL: LazyLock<u64> = LazyLock::new(||
-	std::env::var("BOOKKEEPING_INTERVAL")
-		.ok().and_then(|s| s.parse().ok())
-		.unwrap_or(30 * 60) // 30 min
-);
+		.unwrap_or(30 * 24 * 60 * 60); // 30 days
+
+	let interval = std::time::Duration::from_secs(
+		std::env::var("BOOKKEEPING_INTERVAL")
+			.ok().and_then(|s| s.parse().ok())
+			.unwrap_or(30 * 60)); // 30 minutes
+
+	loop {
+		let now = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.unwrap().as_secs();
+
+		DB.write().retain(|_, (_, e)| e.creation_date + max_age > now);
+		tokio::time::sleep(interval).await;
+	}
+}
 
 #[tokio::main]
 async fn main() {
 	let addr = std::env::args().skip(1).next()
 		.unwrap_or_else(|| String::from("127.0.0.1:8080"));
 
-	// bookkeeping
-	tokio::spawn(async {
-		let now = std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap().as_secs();
-
-		DB.write().retain(|_, (_, e)| e.creation_date + *MAX_EVENT_AGE > now);
-		tokio::time::sleep(std::time::Duration::from_secs(*BOOKKEEPING_INTERVAL)).await;
-	});
+	tokio::spawn(bookkeeping());
 
 	#[cfg(debug_assertions)]
 	println!("{:#?}", *DB.read());
