@@ -75,7 +75,7 @@ async fn get_event(Path(id): Path<String>) -> Response<Json<(u64, Arc<Event>)>> 
 		.map(|(_, e)| (StatusCode::OK, Json((e.creation_date, Arc::clone(e)))))
 }
 
-async fn new_event(Json(mut event): Json<Event>) -> Response<Json<Value>> {
+async fn new_event(Json(event): Json<Event>) -> Response<Json<Value>> {
 	if event.name.len() > 32 
 		{ Err((StatusCode::BAD_REQUEST, "Name too long (max 32 chars)"))?; }
 
@@ -85,6 +85,12 @@ async fn new_event(Json(mut event): Json<Event>) -> Response<Json<Value>> {
 	if event.desc.as_ref().and_then(|d| (d.len() > 256).then_some(())).is_some() 
 		{ Err((StatusCode::BAD_REQUEST, "Description too long (max 256 chars)"))?; }
 
+	let now = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap().as_secs();
+
+	if event.creation_date - 60 * 2 > now 
+		{ Err((StatusCode::BAD_REQUEST, "Creation date too far in the future"))?; }
 
 	let id = {
 		let db = DB.read();
@@ -93,10 +99,6 @@ async fn new_event(Json(mut event): Json<Event>) -> Response<Json<Value>> {
 			if !db.contains_key(&id) { break id; }
 		}
 	};
-
-	event.creation_date = std::time::SystemTime::now()
-		.duration_since(std::time::UNIX_EPOCH)
-		.unwrap().as_secs();
 
 	let key = Hash::new();
 	DB.write().insert(id, (key, Arc::new(event)));

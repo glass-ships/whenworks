@@ -12,7 +12,6 @@ use crate::hash::Hash;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
-	#[serde(skip)]
 	pub creation_date: u64,
 	pub name:  Box<str>,
 	pub desc:  Option<Box<str>>,

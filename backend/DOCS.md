@@ -21,22 +21,23 @@ type Timestamp = u64;
 type Id = string;
 
 struct Event {
-    name:  string,
-    desc:  ?string,
-    dates: [DateRange],
-    users: [User],
+	name:  string,
+	creation_date: Timestamp,
+	desc:  ?string,
+	dates: [DateRange],
+	users: [User],
 }
 
 struct DateRange {
-    from: Timestamp,
-    to:   Timestamp,
-    preferred: bool,
+	from: Timestamp,
+	to:   Timestamp,
+	preferred: bool,
 }
 
 struct User {
-    name: string,
-    comment: ?string,
-    dates: [DateRange],
+	name: string,
+	comment: ?string,
+	dates: [DateRange],
 }
 ```
 
@@ -46,7 +47,7 @@ struct User {
 > `GET /api/{Id}` - Get an event by id.
 
 **Response:**
-> body: `[creation_date: Timestamp, Event]`
+> body: `Event`
 
 **Errors:**
 > 404: Event with given id does not exist.
