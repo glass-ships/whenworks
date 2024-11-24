@@ -51,7 +51,7 @@ struct User {
 
 **Errors:**
 > 404: Event with given id does not exist.
-> 400: Id is invalid base64.
+> 400: Id is invalid base64 or is an invalid length.
 
 ---
 

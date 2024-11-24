@@ -1,12 +1,12 @@
 use rand::distributions::Distribution;
 
+const BASE64_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
 struct Base64;
 impl Distribution<u8> for Base64 {
 	fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> u8 {
-		const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
 		// SAFETY: 64 is a power of 2 so the range is always valid
-		unsafe { *CHARSET.get_unchecked((rng.next_u32() >> 26) as usize) }
+		unsafe { *BASE64_CHARSET.get_unchecked((rng.next_u32() >> 26) as usize) }
 	}
 }
 
@@ -34,6 +34,9 @@ impl Hash {
 	pub fn from(s: &str) -> Option<Self> {
 		if s.len() != UID_LEN { return None; }
 
+		if !s.chars().all(|c| BASE64_CHARSET.contains(&(c as u8)))
+			{ return None; }
+
 		let mut pass = [0; UID_LEN];
 		unsafe {
 			std::ptr::copy_nonoverlapping(
@@ -48,4 +51,3 @@ impl std::fmt::Debug for Hash {
 		write!(f, "Hash({})", self.as_str())
 	}
 }
-
