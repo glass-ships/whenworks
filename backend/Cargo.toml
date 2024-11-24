@@ -7,7 +7,7 @@ license = "0BSD"
 
 [dependencies]
 axum = { version = "0.7", default-features = false, features = ["tokio", "json", "http1"] }
-tokio = { version = "1.41", default-features = false, features = ["rt-multi-thread"] }
+tokio = { version = "1.41", default-features = false, features = ["rt-multi-thread", "io-util", "fs"] }
 
 rand = "0.8"
 bcrypt = { version = "0.16", default-features = false, features = ["std"] }
