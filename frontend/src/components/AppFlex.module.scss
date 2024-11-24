@@ -1,0 +1,39 @@
+.flex {
+  &.block {
+    display: flex;
+    width: 100%;
+  }
+
+  &.inline {
+    display: inline-flex;
+  }
+
+  &.row {
+    flex-wrap: wrap;
+    flex-direction: row;
+  }
+
+  &.col {
+    flex-direction: column;
+  }
+
+  &.none {
+    gap: 0;
+  }
+
+  &.tiny {
+    gap: 5px;
+  }
+
+  &.small {
+    gap: 10px;
+  }
+
+  &.medium {
+    gap: 20px;
+  }
+
+  &.large {
+    gap: 40px;
+  }
+}

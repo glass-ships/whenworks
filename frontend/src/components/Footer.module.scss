@@ -1,0 +1,53 @@
+@import "../global/variables";
+
+$wrap: 500px;
+
+.footer {
+  z-index: 1010;
+  display: flex;
+  // display: grid;
+  // grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  align-content: center;
+  vertical-align: middle;
+  justify-content: space-between;
+  padding: 15px 25px;
+  background: $desaturated2;
+  a {
+    color: $off-white;
+    transition: opacity $fast;
+
+    &:hover {
+      opacity: 0.7;
+      transform: scale(1.1);
+    }
+  }
+}
+
+.social {
+  display: flex;
+  align-items: center;
+  justify-self: center;
+  gap: 10px;
+  font-size: 1.1rem;
+}
+
+.social a {
+  padding: 5px;
+}
+
+.license,
+.license a {
+  line-height: $spacing;
+  text-align: right;
+  // font-size: 0.9rem;
+  font-size: clamp($tiny, -0.8rem + 4vw, $medium);
+  align-self: flex-end;
+}
+
+@media (max-width: $wrap) {
+  .footer {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

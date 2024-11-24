@@ -1,0 +1,67 @@
+// @import url("https://fonts.googleapis.com/css2?family=Antic&display=swap");
+// @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+
+/** Fonts */
+// $sans: "Inter";
+// $sans: "Antic";
+// $sans: "Poppins", sans-serif;
+// $mono: "Courier Prime", monospace;
+
+/** Font - size */
+$tiny: 0.85rem;
+$small: 0.9rem;
+$medium: 1rem;
+$large: 1.2rem;
+$xl: 1.5rem;
+$big: 4rem;
+$huge: 8rem;
+$massive: 10rem;
+$clamped: clamp($small, -0.8rem + 4vw, $xl);
+
+/** Font - weight */
+$light: 100;
+$normal: 300;
+$bold: 500;
+
+/** Line spacing */
+$spacing: 1.5;
+
+/** Color palette */
+$primary: #3730a3;
+$primary-mid: #6366f1;
+$primary-light: #a5b4fc;
+$secondary: #0d9488;
+$secondary-mid: #14b8a6;
+$secondary-light: #2dd4bf;
+$tertiary: #facc15;
+$tertiary-mid: #fde047;
+$tertiary-light: #fef08a;
+$hover-bg: #3730a3;
+$off-white: #fafafa;
+$light-gray: #d0d0e0;
+$gray: #a0a0b0;
+$dark-gray: #404050;
+$off-black: #101020;
+$desaturated1: #8d9db3;
+$desaturated2: #474e80;
+
+/** Width of main content column on page */
+$section: 900px;
+$section-big: 1400px;
+
+/** Effects */
+$rounded: 5px;
+$outline: 0 0 0 3px $tertiary-light;
+$shadow: 1px 2px 10px #40405020;
+
+/** Transitions */
+$fast: 0.35s ease;
+$slow: 1s ease;
+
+/** Media queries */
+$tablet: 900px;
+$phone: 600px;
+
+/** Width of main content column on page */
+$section: 800px;
+$section-big: 1200px;
