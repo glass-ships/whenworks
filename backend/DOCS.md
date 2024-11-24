@@ -38,9 +38,9 @@ struct DateRange {
 }
 
 struct User {
-	name: string,
+	name:    string,
 	comment: ?string,
-	dates: [DateRange],
+	dates:   [DateRange],
 }
 ```
 
