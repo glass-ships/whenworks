@@ -1,5 +1,7 @@
+/// <reference types="vite-plugin-svgr/client" />
+
 import classes from "./Header.module.css";
-import { ReactComponent as Logo } from "@/assets/gearclock.svg";
+import Logo from "@/assets/gearclock.svg?react";
 
 const Header = () => (
   <div className={classes.header}>

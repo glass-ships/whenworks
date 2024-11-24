@@ -1,7 +1,7 @@
 // import { useState } from "react";
 import { getEvent } from "@/api/event";
-import Header from "@/sections/Header";
-import EventForm from "@/sections/EventForm";
+import Header from "@/components/Header";
+import EventForm from "@/pages/EventForm";
 import "./App.css";
 
 function App() {

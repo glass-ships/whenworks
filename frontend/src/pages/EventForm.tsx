@@ -14,7 +14,7 @@ const EventForm = () => {
 
   const onSubmit = (event: any) => {
     event.preventDefault();
-    let dt = new Date().valueOf();
+    const dt = new Date().valueOf();
     const data: Event = {
       name: name,
       desc: desc,

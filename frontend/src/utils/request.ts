@@ -1,8 +1,8 @@
 import { sleep } from "./debug";
 import { getUrl } from "./url";
 
-const api = "http://localhost:5000"; // or whatever the backend URL is
-const suffix = "/v3/api"; // or whatever the backend API  suffix is
+const api = "http://localhost:8080"; // or whatever the backend URL is
+const suffix = "/api"; // or whatever the backend API  suffix is
 
 /**
  * Simple Typescript function to make GET requests to the backend
@@ -49,7 +49,8 @@ export const request = async <Response>(
   const paramsObject = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     const values = [value].flat();
-    for (const value of values) if (["string", "number", "boolean"].includes(typeof value)) paramsObject.append(key, String(value));
+    for (const value of values)
+      if (["string", "number", "boolean"].includes(typeof value)) paramsObject.append(key, String(value));
   }
 
   /**artificial delay */
@@ -57,12 +58,15 @@ export const request = async <Response>(
 
   /** sort params for consistency */
   paramsObject.sort();
-  console.debug("paramsObject: ", paramsObject.toString());
+  console.debug({ paramsObject });
 
   /** assemble url to query */
   // const url = api + path;
-  const paramsString = "?" + paramsObject.toString();
-  const url = api + path + "/" + paramsString;
+  const paramsString = paramsObject.toString() ? "?" + paramsObject.toString() : "";
+  console.log({ paramsString });
+
+  const url = api + suffix + path + paramsString;
+  console.log({ url });
 
   if (newTab) window.open(url);
 
@@ -73,14 +77,14 @@ export const request = async <Response>(
   const id = JSON.stringify(request, ["url", "method", "headers"]);
 
   /** first check if request is cached */
-  let response = cache.get(path);
+  let response = cache.get(id);
 
   /** logging info */
   const cached = response ? "cached" : "new";
   const endpoint = getUrl(path, "pathname").replace(suffix, "");
 
   if (import.meta.env.MODE !== "test")
-    console.debug(`📞 Request (${cached}) ${path}`, {
+    console.debug(`📞 Request (${cached}) ${endpoint}`, {
       url,
       params,
       options,
@@ -90,7 +94,6 @@ export const request = async <Response>(
   /** if request not cached, make new request */
   if (!response) {
     response = await fetch(url, options);
-    console.debug("response: ", response);
   }
 
   /** capture error for throwing later */
@@ -107,7 +110,9 @@ export const request = async <Response>(
         error = `Forbidden`;
         break;
       case 404:
-        return parse === "text" ? ("Event not found" as unknown as Response) : ({ error: "Event not found" } as unknown as Response);
+        return parse === "text" ?
+            ("Event not found" as unknown as Response)
+          : ({ error: "Event not found" } as unknown as Response);
       case 500:
         error = `Internal Server Error`;
         break;

@@ -1,5 +1,7 @@
+/// <reference types="vite-plugin-svgr/client" />
+
 import { InputHTMLAttributes } from "react";
-import { ReactComponent as XIcon } from "@/assets/x.svg";
+import XIcon from "@/assets/x.svg?react";
 import classes from "./Textbox.module.css";
 
 type Props = {
@@ -19,12 +21,9 @@ const Textbox = ({ type, value, onChange, ...props }: Props) => (
       autoCorrect="off"
       autoCapitalize="off"
       spellCheck="false"
+      required={true}
     />
-    <button
-      className={classes.button}
-      data-tooltip="Clear"
-      onClick={() => onChange("")}
-    >
+    <button className={classes.button} data-tooltip="Clear" onClick={() => onChange("")}>
       <XIcon />
     </button>
   </div>
