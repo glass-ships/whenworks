@@ -34,9 +34,11 @@ async fn bookkeeping() {
 			.unwrap().as_secs();
 
 		#[cfg(debug_assertions)]
-		println!("Bookkeeping: {:#?}", DB.read().iter().filter(|(_, (_, e))| e.creation_date - max_age > now).collect::<Vec<_>>());
+		println!("Bookkeeping: {:#?}", DB.read().iter()
+			.filter(|(_, (_, e))| e.creation_date + max_age > now)
+			.collect::<Vec<_>>());
 
-		DB.write().retain(|_, (_, e)| e.creation_date - max_age > now);
+		DB.write().retain(|_, (_, e)| e.creation_date + max_age > now);
 		tokio::time::sleep(interval).await;
 	}
 }
