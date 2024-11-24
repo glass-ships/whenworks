@@ -34,14 +34,13 @@ impl Hash {
 	pub fn from(s: &str) -> Option<Self> {
 		if s.len() != UID_LEN { return None; }
 
-		if !s.chars().all(|c| BASE64_CHARSET.contains(&(c as u8)))
-			{ return None; }
-
 		let mut pass = [0; UID_LEN];
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				s.as_bytes().as_ptr(), pass.as_mut_ptr(), UID_LEN);
-		}
+
+		s.chars().zip(pass.iter_mut())
+			.try_for_each(|(c, b)| {
+				*b = c as u8;
+				BASE64_CHARSET.contains(&(c as u8)).then_some(()) });
+
 		Some(Self(pass))
 	}
 }
