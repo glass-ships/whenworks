@@ -5,9 +5,10 @@ import classes from "./EventForm.module.css";
 import Textbox from "@/components/Textbox";
 import { Event, DateType, User } from "@/api/model";
 import { createEvent } from "@/api/event";
+import { Link } from "react-router";
 // import Button from "@/components/Button";
 
-const EventForm = () => {
+export default function EventForm() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [dates, setDates] = useState("");
@@ -20,7 +21,8 @@ const EventForm = () => {
       desc: desc,
       creation_date: dt,
       dates: [],
-      users: {},
+      // users: {},
+      users: [],
     };
     console.log("Input data: ", data);
     const eventResponse = createEvent(data);
@@ -28,15 +30,11 @@ const EventForm = () => {
   };
 
   return (
-    <form className={classes.form} onSubmit={onSubmit}>
-      <Textbox value={name} onChange={setName} placeholder="Event Name" />
-      <Textbox type="textarea" value={desc} onChange={setDesc} placeholder="Event Description" />
-      {/* <Textbox value={dates} onChange={setDates} placeholder="Event Dates" /> */}
-      <button className={classes.button} type="submit" onSubmit={onSubmit}>
-        Create event
-      </button>
-    </form>
+    <div>
+      <h1>We're still working on it.</h1>
+      <h2>
+        Check the <Link to={"./testbed"}>testbed</Link> to play!
+      </h2>
+    </div>
   );
-};
-
-export default EventForm;
+}

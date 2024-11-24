@@ -18,7 +18,7 @@ export type EventResponse = { key: string; uid: string };
 
 export interface User {
   /** The name of the user */
-  // username: string,
+  username: string,
   /** A comment from the user */
   comment?: string;
   /** The availability dates of the user */

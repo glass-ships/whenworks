@@ -3,7 +3,7 @@ import { request } from "@/utils/request";
 // import { host } from "@/api/index";
 
 export const getEvent = async (eventID: string) => {
-  const response = await request<Event>(eventID);
+  const response = await request<Event>(`/${eventID}`);
   return response;
 };
 

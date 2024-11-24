@@ -1,4 +1,7 @@
-import { FormEvent, useState } from "react";
+import React, {
+  // FormEvent,
+  useState,
+} from "react";
 import classes from "./Testbed.module.css";
 import Textbox from "@/components/Textbox";
 import {
@@ -9,15 +12,17 @@ import {
 } from "@/api/model";
 import { createEvent, getEvent } from "@/api/event";
 // import Button from "@/components/Button";
+// import AppSection from "@/components/AppSection";
 
-const EventForm = () => {
+export default function Testbed() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
-  const [eventResponse, setEventResponse] = useState<EventResponse>();
   const [eventId, setEventId] = useState("");
+  const [event, setEvent] = useState<Event>();
+  const [eventResponse, setEventResponse] = useState<EventResponse>();
   // const [dates, setDates] = useState<DateType[]>([]);
 
-  const onSubmit = async (event: any) => {
+  const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const dt = Math.floor(new Date().valueOf() / 1000);
     const data: Event = {
@@ -31,23 +36,22 @@ const EventForm = () => {
     setEventResponse(await createEvent(data));
   };
 
-  const getEvent = (event: any) => {
-    event.preventDefault();
-    const eventResponse = getEvent(eventId);
-    console.log("Response: ", eventResponse);
+  const getEventById = async (event: React.FormEvent) => {
+    // event.preventDefault();
+    setEvent(await getEvent(eventId));
   };
 
   return (
-    <div>
+    <main>
       <h1>WhenWorks Testbed</h1>
 
-      <h2> Create Event </h2>
-      <div>
+      <div style={{ padding: "2rem" }}>
+        <h2> Create a New Event </h2>
         <form className={classes.form} onSubmit={onSubmit}>
           <Textbox value={name} onChange={setName} placeholder="Event Name" />
           <Textbox type="textarea" value={desc} onChange={setDesc} placeholder="Event Description" />
-          {/* <Textbox value={dates} onChange={setDates} placeholder="Event Dates" /> */}
-          <button className={classes.button} type="submit" onSubmit={onSubmit}>
+          {/* DATE SELECTION GOES HERE */}
+          <button className={classes.button} type="submit" onSubmit={(e) => onSubmit(e)}>
             Create event
           </button>
         </form>
@@ -60,15 +64,24 @@ const EventForm = () => {
         )}
       </div>
 
-      <h2>Get Event</h2>
-      <form className={classes.form}>
-        <Textbox value={eventId} onChange={setEventId} placeholder="Event ID" />
-        <button className={classes.button} type="submit" onSubmit={() => getEvent(eventId)}>
-          Get event
-        </button>
-      </form>
-    </div>
+      <div style={{ padding: "2rem" }}>
+        <h2>Get Event</h2>
+        <form className={classes.form}>
+          <Textbox value={eventId} onChange={setEventId} placeholder="Event ID" />
+          <button className={classes.button} type="submit" onSubmit={getEventById}>
+            Get event
+          </button>
+        </form>
+        {event && (
+          <div>
+            <h3>Event: {event.name}</h3>
+            <p>Creation Date: {event.creation_date}</p>
+            <p>Description: {event.desc}</p>
+            <p>Dates: {event.dates?.map((date) => date.toString())}</p>
+            <p>Users: {event.users?.map((user) => user.username)}</p>
+          </div>
+        )}
+      </div>
+    </main>
   );
-};
-
-export default EventForm;
+}
