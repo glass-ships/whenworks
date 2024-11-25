@@ -58,15 +58,12 @@ export const request = async <Response>(
 
   /** sort params for consistency */
   paramsObject.sort();
-  console.debug({ paramsObject });
 
   /** assemble url to query */
   // const url = api + path;
   const paramsString = paramsObject.toString() ? "?" + paramsObject.toString() : "";
-  console.log({ paramsString });
 
   const url = api + suffix + path + paramsString;
-  console.log({ url });
 
   if (newTab) window.open(url);
 

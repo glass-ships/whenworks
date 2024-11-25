@@ -3,10 +3,10 @@ export type UserUsername = string;
 export interface Event {
   /** The name of the event */
   name: string;
-  /** A description of the event */
-  desc?: string;
   /** The date the event was created */
   creation_date: number;
+  /** A description of the event */
+  desc?: string;
   /** The dates of the event */
   dates?: Date[];
   /** The users of the event */
